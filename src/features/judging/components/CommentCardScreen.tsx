@@ -85,7 +85,7 @@ export function CommentCardScreen({
     setError(null);
     setLoading(true);
     try {
-      await submitCommentCard(currentSub.id, judgeId, categoryRoundId, currentCard);
+      await submitCommentCard(currentSub.id, categoryRoundId, currentCard);
       if (isLast) {
         onDone();
       } else {

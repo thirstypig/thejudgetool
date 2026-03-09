@@ -1,27 +1,13 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
-import { auth } from "@/shared/lib/auth";
+import { requireAuth, requireCaptain } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
-import type { Session } from "next-auth";
 import type {
   TableScoringStatus,
   ScoreCardWithJudge,
   CorrectionRequestWithDetails,
 } from "../types";
-
-async function requireCaptain() {
-  const session = (await auth()) as Session | null;
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (
-    !session?.user ||
-    (role !== "TABLE_CAPTAIN" && role !== "ORGANIZER")
-  ) {
-    throw new Error("Unauthorized: must be a table captain");
-  }
-  const cbjNumber = (session.user as { cbjNumber?: string }).cbjNumber;
-  return { session, cbjNumber, userId: (session.user as { id?: string }).id };
-}
 
 // --- Get Table Scoring Status ---
 
@@ -29,6 +15,7 @@ export async function getTableScoringStatus(
   tableId: string,
   categoryRoundId: string
 ): Promise<TableScoringStatus> {
+  await requireAuth();
   const table = await prisma.table.findUniqueOrThrow({
     where: { id: tableId },
     select: { id: true, tableNumber: true },
@@ -100,6 +87,7 @@ export async function getTableScoreCards(
   tableId: string,
   categoryRoundId: string
 ): Promise<ScoreCardWithJudge[]> {
+  await requireAuth();
   const scoreCards = await prisma.scoreCard.findMany({
     where: {
       submission: { tableId, categoryRoundId },
@@ -130,6 +118,7 @@ export async function getTableScoreCards(
 export async function getPendingCorrectionRequests(
   tableId: string
 ): Promise<CorrectionRequestWithDetails[]> {
+  await requireAuth();
   const requests = await prisma.correctionRequest.findMany({
     where: {
       status: "PENDING",
@@ -161,10 +150,9 @@ export async function getPendingCorrectionRequests(
 // --- Approve Correction Request ---
 
 export async function approveCorrectionRequest(
-  requestId: string,
-  captainId: string
+  requestId: string
 ) {
-  await requireCaptain();
+  const { userId: captainId } = await requireCaptain();
 
   const request = await prisma.correctionRequest.findUniqueOrThrow({
     where: { id: requestId },
@@ -199,10 +187,9 @@ export async function approveCorrectionRequest(
 // --- Deny Correction Request ---
 
 export async function denyCorrectionRequest(
-  requestId: string,
-  captainId: string
+  requestId: string
 ) {
-  await requireCaptain();
+  const { userId: captainId } = await requireCaptain();
 
   const request = await prisma.correctionRequest.findUniqueOrThrow({
     where: { id: requestId },
@@ -229,10 +216,9 @@ export async function denyCorrectionRequest(
 
 export async function submitCategoryToOrganizer(
   tableId: string,
-  categoryRoundId: string,
-  captainId: string
+  categoryRoundId: string
 ) {
-  await requireCaptain();
+  const { userId: captainId } = await requireCaptain();
 
   // Verify all judges have submitted all scorecards
   const status = await getTableScoringStatus(tableId, categoryRoundId);

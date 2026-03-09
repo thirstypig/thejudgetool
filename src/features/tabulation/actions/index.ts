@@ -1,8 +1,7 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
-import { auth } from "@/shared/lib/auth";
-import type { Session } from "next-auth";
+import { requireOrganizer } from "@/shared/lib/auth-guards";
 import type {
   CategoryProgress,
   CompetitionProgress,
@@ -14,15 +13,6 @@ import {
   tabulateCategory as tabulateCategoryPure,
   type SubmissionInput,
 } from "../utils";
-
-async function requireOrganizer() {
-  const session = (await auth()) as Session | null;
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || role !== "ORGANIZER") {
-    throw new Error("Unauthorized");
-  }
-  return session;
-}
 
 // --- Get Competition Progress ---
 

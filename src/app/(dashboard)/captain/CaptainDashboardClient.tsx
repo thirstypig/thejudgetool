@@ -41,7 +41,7 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
 
   const loadData = useCallback(async () => {
     try {
-      const judgeSession = await getJudgeSession(cbjNumber);
+      const judgeSession = await getJudgeSession();
       setSession(judgeSession);
 
       if (judgeSession?.table && judgeSession.activeCategory) {
@@ -65,7 +65,7 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [cbjNumber]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -80,8 +80,7 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
     try {
       await submitCategoryToOrganizer(
         session.table.id,
-        session.activeCategory.id,
-        session.judge.id
+        session.activeCategory.id
       );
       await loadData();
     } catch (err) {
@@ -159,7 +158,6 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
           <SectionCard.Body>
             <CorrectionRequestPanel.Root
               requests={corrections}
-              captainId={session.judge.id}
               onResolved={loadData}
             >
               {corrections.map((req) => (

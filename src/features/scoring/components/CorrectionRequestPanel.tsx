@@ -16,25 +16,22 @@ import type { CorrectionRequestWithDetails } from "../types";
 
 const CorrectionContext = React.createContext<{
   requests: CorrectionRequestWithDetails[];
-  captainId: string;
   onResolved: () => void;
-}>({ requests: [], captainId: "", onResolved: () => {} });
+}>({ requests: [], onResolved: () => {} });
 
 // --- Root ---
 
 function Root({
   requests,
-  captainId,
   onResolved,
   children,
 }: {
   requests: CorrectionRequestWithDetails[];
-  captainId: string;
   onResolved: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <CorrectionContext.Provider value={{ requests, captainId, onResolved }}>
+    <CorrectionContext.Provider value={{ requests, onResolved }}>
       <div className="space-y-3">{children}</div>
     </CorrectionContext.Provider>
   );
@@ -47,7 +44,7 @@ function RequestCard({
 }: {
   request: CorrectionRequestWithDetails;
 }) {
-  const { captainId, onResolved } = React.useContext(CorrectionContext);
+  const { onResolved } = React.useContext(CorrectionContext);
   const [acting, setActing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -55,7 +52,7 @@ function RequestCard({
     setActing(true);
     setError(null);
     try {
-      await approveCorrectionRequest(request.id, captainId);
+      await approveCorrectionRequest(request.id);
       onResolved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve");
@@ -68,7 +65,7 @@ function RequestCard({
     setActing(true);
     setError(null);
     try {
-      await denyCorrectionRequest(request.id, captainId);
+      await denyCorrectionRequest(request.id);
       onResolved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deny");

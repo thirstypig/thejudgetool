@@ -29,7 +29,7 @@ export default async function JudgePage() {
   const judgeName = session.user.name ?? cbjNumber;
 
   // Check setup state (registration → table → seat → ready)
-  const setupState = await getJudgeSetupState(cbjNumber);
+  const setupState = await getJudgeSetupState();
   const competition = await getActiveCompetitionForJudge();
 
   const competitionInfo = competition
@@ -43,7 +43,7 @@ export default async function JudgePage() {
   switch (setupState.phase) {
     case "not-registered": {
       // Fall back to legacy flow: check for direct table assignment
-      const judgeSession = await getJudgeSession(cbjNumber);
+      const judgeSession = await getJudgeSession();
       if (judgeSession) {
         return (
           <JudgeDashboardClient cbjNumber={cbjNumber} judgeName={judgeName} competitionInfo={competitionInfo} />

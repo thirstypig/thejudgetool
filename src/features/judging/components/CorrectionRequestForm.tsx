@@ -23,14 +23,12 @@ interface CorrectionRequestFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   scoreCard: ScoreCard;
-  judgeId: string;
 }
 
 export function CorrectionRequestForm({
   open,
   onOpenChange,
   scoreCard,
-  judgeId,
 }: CorrectionRequestFormProps) {
   const [serverError, setServerError] = React.useState<string | null>(null);
 
@@ -46,7 +44,7 @@ export function CorrectionRequestForm({
   async function onSubmit(data: CorrectionSchemaType) {
     try {
       setServerError(null);
-      await requestCorrection(scoreCard.id, judgeId, data.reason);
+      await requestCorrection(scoreCard.id, data.reason);
       reset();
       onOpenChange(false);
     } catch (err) {

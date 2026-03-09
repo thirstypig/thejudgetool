@@ -75,7 +75,7 @@ export function TasteTextureScoringScreen({
     setError(null);
     setLoading(true);
     try {
-      await submitTasteTextureScores(currentSub.id, judgeId, {
+      await submitTasteTextureScores(currentSub.id, {
         taste: currentScores.taste!,
         texture: currentScores.texture!,
       });

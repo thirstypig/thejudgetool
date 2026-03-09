@@ -1,19 +1,9 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
-import { auth } from "@/shared/lib/auth";
-import type { Session } from "next-auth";
+import { requireOrganizer } from "@/shared/lib/auth-guards";
 import { importJudgeSchema } from "../schemas";
 import type { ImportResult } from "../types";
-
-async function requireOrganizer() {
-  const session = (await auth()) as Session | null;
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || role !== "ORGANIZER") {
-    throw new Error("Unauthorized");
-  }
-  return session;
-}
 
 export async function importSingleJudge(data: {
   cbjNumber: string;

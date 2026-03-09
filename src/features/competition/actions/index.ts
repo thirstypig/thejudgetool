@@ -1,9 +1,8 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
-import { auth } from "@/shared/lib/auth";
+import { requireAuth, requireOrganizer } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
-import type { Session } from "next-auth";
 import {
   KCBS_MANDATORY_CATEGORIES,
   CATEGORY_STATUS,
@@ -11,15 +10,6 @@ import {
 } from "@/shared/constants/kcbs";
 import { competitionSchema, competitorSchema } from "../schemas";
 import type { CompetitionWithRelations, CompetitionJudgeWithUser } from "../types";
-
-async function requireOrganizer() {
-  const session = (await auth()) as Session | null;
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || role !== "ORGANIZER") {
-    throw new Error("Unauthorized");
-  }
-  return session;
-}
 
 // --- Create Competition ---
 
@@ -54,6 +44,7 @@ export async function createCompetition(data: {
 // --- Get Competitions ---
 
 export async function getCompetitions() {
+  await requireAuth();
   const competitions = await prisma.competition.findMany({
     orderBy: { date: "desc" },
     include: {
@@ -71,6 +62,7 @@ export async function getCompetitions() {
 export async function getCompetitionById(
   id: string
 ): Promise<CompetitionWithRelations | null> {
+  await requireAuth();
   const competition = await prisma.competition.findUnique({
     where: { id },
     include: {
@@ -208,6 +200,7 @@ export async function validateNoRepeatCompetitor(
   tableId: string,
   competitorId: string
 ): Promise<boolean> {
+  await requireAuth();
   const submission = await prisma.submission.findFirst({
     where: { tableId, competitorId },
   });
@@ -281,6 +274,7 @@ export async function registerJudgesBulkForCompetition(
 export async function getCompetitionRoster(
   competitionId: string
 ): Promise<CompetitionJudgeWithUser[]> {
+  await requireAuth();
   const registrations = await prisma.competitionJudge.findMany({
     where: { competitionId },
     include: {
@@ -462,17 +456,18 @@ export async function unregisterJudgeFromCompetition(
     );
   }
 
-  // Remove table assignment if any
-  await prisma.tableAssignment.deleteMany({
-    where: {
-      userId: registration.userId,
-      table: { competitionId: registration.competitionId },
-    },
-  });
-
-  await prisma.competitionJudge.delete({
-    where: { id: competitionJudgeId },
-  });
+  // Remove table assignment and registration atomically
+  await prisma.$transaction([
+    prisma.tableAssignment.deleteMany({
+      where: {
+        userId: registration.userId,
+        table: { competitionId: registration.competitionId },
+      },
+    }),
+    prisma.competitionJudge.delete({
+      where: { id: competitionJudgeId },
+    }),
+  ]);
 
   revalidatePath(`/organizer/${registration.competitionId}/judges`);
 }
@@ -528,39 +523,41 @@ export async function randomAssignTables(competitionId: string) {
     nextTableNumber++;
   }
 
-  // Round-robin assign
-  let slotIdx = 0;
-  for (const judge of shuffled) {
-    // Find next table with available slots
-    while (tableSlots[slotIdx].available <= 0) {
+  // Round-robin assign within a transaction
+  await prisma.$transaction(async (tx) => {
+    let slotIdx = 0;
+    for (const judge of shuffled) {
+      // Find next table with available slots
+      while (tableSlots[slotIdx].available <= 0) {
+        slotIdx = (slotIdx + 1) % tableSlots.length;
+      }
+
+      const tableNumber = tableSlots[slotIdx].tableNumber;
+
+      // Find or create table
+      let table = await tx.table.findUnique({
+        where: { competitionId_tableNumber: { competitionId, tableNumber } },
+      });
+      if (!table) {
+        table = await tx.table.create({
+          data: { competitionId, tableNumber },
+        });
+      }
+
+      // Check if already assigned (shouldn't happen but be safe)
+      const existing = await tx.tableAssignment.findFirst({
+        where: { userId: judge.userId, table: { competitionId } },
+      });
+      if (!existing) {
+        await tx.tableAssignment.create({
+          data: { tableId: table.id, userId: judge.userId, seatNumber: null },
+        });
+      }
+
+      tableSlots[slotIdx].available--;
       slotIdx = (slotIdx + 1) % tableSlots.length;
     }
-
-    const tableNumber = tableSlots[slotIdx].tableNumber;
-
-    // Find or create table
-    let table = await prisma.table.findUnique({
-      where: { competitionId_tableNumber: { competitionId, tableNumber } },
-    });
-    if (!table) {
-      table = await prisma.table.create({
-        data: { competitionId, tableNumber },
-      });
-    }
-
-    // Check if already assigned (shouldn't happen but be safe)
-    const existing = await prisma.tableAssignment.findFirst({
-      where: { userId: judge.userId, table: { competitionId } },
-    });
-    if (!existing) {
-      await prisma.tableAssignment.create({
-        data: { tableId: table.id, userId: judge.userId, seatNumber: null },
-      });
-    }
-
-    tableSlots[slotIdx].available--;
-    slotIdx = (slotIdx + 1) % tableSlots.length;
-  }
+  });
 
   revalidatePath(`/organizer/${competitionId}/judges`);
   revalidatePath(`/organizer/${competitionId}/setup`);
