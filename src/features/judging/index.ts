@@ -4,6 +4,8 @@ export { ScoreCard } from "./components/ScoreCard";
 export { TableSetupScreen } from "./components/TableSetupScreen";
 export { SeatSelectionScreen } from "./components/SeatSelectionScreen";
 export { BoxEntryScreen } from "./components/BoxEntryScreen";
+export { EventInfoScreen } from "./components/EventInfoScreen";
+export { CommentCardScreen } from "./components/CommentCardScreen";
 export { AppearanceScoringScreen } from "./components/AppearanceScoringScreen";
 export { TasteTextureScoringScreen } from "./components/TasteTextureScoringScreen";
 export { FontSizeControl } from "./components/FontSizeControl";
@@ -12,6 +14,8 @@ export {
   getJudgeSetupState,
   getJudgeSession,
   getActiveCompetitionForJudge,
+  submitCommentCard,
+  getCommentCardsForJudge,
 } from "./actions";
 export type {
   JudgeSession,

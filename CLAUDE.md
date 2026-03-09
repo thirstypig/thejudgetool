@@ -238,3 +238,33 @@ UI primitives in `src/shared/components/ui/`:
 **Constants**: defined in `src/shared/constants/kcbs.ts` — `VALID_SCORES`, `SCORE_WEIGHTS`, `MAX_WEIGHTED_SCORE`, `JUDGES_PER_TABLE`, `COUNTING_JUDGES`, `PERFECT_SCORE`, `DQ_SCORE`.
 
 **Rules page**: `/rules` — accessible to all roles. Contains 2025 KCBS Judging Procedures, Judges' Creed, scoring tables, and tiebreaking rules.
+
+## Future Features (Post-MVP)
+
+### Comment Cards (Implemented — Schema + UI ready, needs polish)
+
+Judges optionally fill out comment cards after scoring each category. Organizers toggle this on/off per competition (`commentCardsEnabled` field on Competition). Comment cards capture taste checkboxes, tenderness checkboxes, appearance free text, and other comments. Schema: `CommentCard` model. Constants: `TASTE_COMMENT_OPTIONS`, `TENDERNESS_COMMENT_OPTIONS` in `kcbs.ts`. Components: `EventInfoScreen`, `CommentCardScreen`, `CommentCardToggle`. Integrated into judge dashboard as `"event-info"` and `"comment-cards"` phases.
+
+### Box Distribution Proposal
+
+Auto-generate a proposed box assignment per table per category, ensuring **no competitor appears at the same table twice across categories** (extends BR-2 to the full competition, not just per-round). Key concepts:
+
+- A competition ideally has **24 competitors** (6 per table × 4 mandatory categories).
+- Each competitor submits **one box per category** (e.g., one chicken box, one pork ribs box, one pork box, one brisket box).
+- The system should generate a distribution matrix: for each table, which 6 competitor boxes it receives per category, with zero overlap across categories at the same table.
+- Organizers can view, approve, and print the proposed distribution to hand to volunteers.
+- The algorithm is a constrained assignment problem (Latin square variant across 4 categories).
+
+This feature lives on the organizer setup page and feeds into the Judges Table Organizer role (see below).
+
+### Judges Table Organizer Role
+
+A new user role: `TABLE_ORGANIZER`. This person physically receives incoming boxes of meat and distributes them to the correct tables based on the box distribution plan.
+
+- They see a view showing: which boxes go to which table for the current active category.
+- As boxes arrive, they can check them off.
+- They do **not** judge or score — their role is logistics only.
+- Auth: separate credential provider or shared PIN like judges.
+- Routes: `/table-organizer/*` with middleware role enforcement.
+
+**Status**: Deferred. Will implement after MVP is stable.

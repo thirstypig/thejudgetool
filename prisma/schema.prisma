@@ -9,13 +9,18 @@ datasource db {
 }
 
 model Competition {
-  id        String   @id @default(cuid())
-  name      String
-  date      DateTime
-  location  String
-  status    String   @default("SETUP") // SETUP | ACTIVE | CLOSED
-  judgePin  String?  // Shared 4-digit PIN for all judges for the day
-  createdAt DateTime @default(now())
+  id                  String   @id @default(cuid())
+  name                String
+  date                DateTime
+  location            String
+  status              String   @default("SETUP") // SETUP | ACTIVE | CLOSED
+  judgePin            String?  // Shared 4-digit PIN for all judges for the day
+  organizerName       String?
+  kcbsRepName         String?
+  city                String?
+  state               String?
+  commentCardsEnabled Boolean  @default(false)
+  createdAt           DateTime @default(now())
 
   competitors    Competitor[]
   tables         Table[]
@@ -54,6 +59,7 @@ model User {
   auditLogs                AuditLog[]
   submissionsEntered       Submission[]      @relation("SubmissionEnteredBy")
   competitionRegistrations CompetitionJudge[]
+  commentCards             CommentCard[]
 }
 
 model Table {
@@ -104,8 +110,9 @@ model CategoryRound {
   order         Int
   status        String @default("PENDING") // PENDING | ACTIVE | SUBMITTED
 
-  competition Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  submissions Submission[]
+  competition  Competition   @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  submissions  Submission[]
+  commentCards CommentCard[]
 
   @@unique([competitionId, categoryName])
 }
@@ -124,6 +131,7 @@ model Submission {
   table           Table         @relation(fields: [tableId], references: [id], onDelete: Cascade)
   enteredByJudge  User?         @relation("SubmissionEnteredBy", fields: [enteredByJudgeId], references: [id])
   scoreCards      ScoreCard[]
+  commentCards    CommentCard[]
 
   @@unique([categoryRoundId, tableId, boxCode])
 }
@@ -171,4 +179,26 @@ model AuditLog {
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   actor       User        @relation(fields: [actorId], references: [id])
+}
+
+model CommentCard {
+  id               String   @id @default(cuid())
+  submissionId     String
+  judgeId          String
+  categoryRoundId  String
+  appearanceScore  Int
+  tasteScore       Int
+  textureScore     Int
+  otherLine        String?
+  appearanceText   String?
+  tasteChecks      String[]
+  tendernessChecks String[]
+  otherComments    String?
+  createdAt        DateTime @default(now())
+
+  submission    Submission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  judge         User          @relation(fields: [judgeId], references: [id])
+  categoryRound CategoryRound @relation(fields: [categoryRoundId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, judgeId])
 }

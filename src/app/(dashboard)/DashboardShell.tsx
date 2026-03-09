@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Trophy,
   Settings,
-  Radio,
   BarChart3,
   Users,
   ClipboardList,
@@ -51,16 +50,17 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  {
-    label: "Dashboard",
-    href: "/organizer",
-    icon: LayoutDashboard,
-    roles: ["ORGANIZER"],
-  },
+  // --- Organizer: event lifecycle order ---
   {
     label: "Competitions",
     href: "/organizer",
     icon: Trophy,
+    roles: ["ORGANIZER"],
+  },
+  {
+    label: "Competitors",
+    href: "/organizer/setup",
+    icon: Settings,
     roles: ["ORGANIZER"],
   },
   {
@@ -70,29 +70,19 @@ const navItems: NavItem[] = [
     roles: ["ORGANIZER"],
   },
   {
-    label: "Competition Setup",
-    href: "/organizer/setup",
-    icon: Settings,
-    roles: ["ORGANIZER"],
-  },
-  {
-    label: "Live Status",
-    href: "/organizer/status",
-    icon: Radio,
-    roles: ["ORGANIZER"],
-  },
-  {
     label: "Results",
     href: "/organizer/results",
     icon: BarChart3,
     roles: ["ORGANIZER"],
   },
+  // --- Judge ---
   {
     label: "My Scorecards",
     href: "/judge",
     icon: ClipboardList,
     roles: ["JUDGE"],
   },
+  // --- Table Captain ---
   {
     label: "My Table",
     href: "/captain",
@@ -111,6 +101,7 @@ const navItems: NavItem[] = [
     icon: AlertCircle,
     roles: ["TABLE_CAPTAIN"],
   },
+  // --- All roles ---
   {
     label: "Rules",
     href: "/rules",
@@ -160,19 +151,16 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     if (
       user.role === "ORGANIZER" &&
       activeCompetition &&
-      (item.label === "Competition Setup" ||
-        item.label === "Live Status" ||
+      (item.label === "Competitors" ||
         item.label === "Results" ||
         item.label === "Judges")
     ) {
       const suffix =
-        item.label === "Competition Setup"
+        item.label === "Competitors"
           ? "setup"
-          : item.label === "Live Status"
-            ? "status"
-            : item.label === "Judges"
-              ? "judges"
-              : "results";
+          : item.label === "Judges"
+            ? "judges"
+            : "results";
       return `/organizer/${activeCompetition.id}/${suffix}`;
     }
     return item.href;
@@ -183,13 +171,8 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     if (href === pathname) return true;
     // Match competition sub-routes
     if (
-      item.label === "Competition Setup" &&
+      item.label === "Competitors" &&
       pathname.includes("/setup")
-    )
-      return true;
-    if (
-      item.label === "Live Status" &&
-      pathname.includes("/status")
     )
       return true;
     if (item.label === "Results" && pathname.includes("/results")) return true;
@@ -197,10 +180,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     return false;
   }
 
-  // Remove duplicate Dashboard/Competitions for organizer
-  const displayNav = filteredNav.filter(
-    (item) => item.label !== "Dashboard"
-  );
+  const displayNav = filteredNav;
 
   const sidebarContent = (
     <nav className="flex flex-col gap-1 p-3">
@@ -211,8 +191,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
         const disabled =
           !activeCompetition &&
           user.role === "ORGANIZER" &&
-          (item.label === "Competition Setup" ||
-            item.label === "Live Status" ||
+          (item.label === "Competitors" ||
             item.label === "Results" ||
             item.label === "Judges");
 

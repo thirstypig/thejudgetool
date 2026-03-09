@@ -6,7 +6,7 @@ import { PageHeader } from "@/shared/components/common/PageHeader";
 import {
   getCompetitionById,
   getCompetitionRoster,
-  JudgeRosterPanel,
+  JudgeManagementTabs,
 } from "@features/competition";
 
 export const metadata: Metadata = {
@@ -37,7 +37,7 @@ export default async function JudgesPage({
         title="Judges"
         subtitle={competition.name}
       />
-      <JudgeRosterPanel
+      <JudgeManagementTabs
         competitionId={params.competitionId}
         judgePin={competition.judgePin}
         roster={roster}

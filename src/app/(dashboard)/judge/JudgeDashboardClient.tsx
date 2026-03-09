@@ -9,6 +9,8 @@ import {
   BoxEntryScreen,
   AppearanceScoringScreen,
   TasteTextureScoringScreen,
+  EventInfoScreen,
+  CommentCardScreen,
   FontSizeControl,
   useFontSize,
   getJudgeSession,
@@ -25,7 +27,13 @@ interface Props {
   };
 }
 
-function detectPhase(session: JudgeSession): JudgePhase {
+function detectPhase(
+  session: JudgeSession,
+  hasStarted: boolean,
+  commentCardsDone: Record<string, boolean>
+): JudgePhase {
+  if (!hasStarted) return "event-info";
+
   const { activeCategory, assignedSubmissions } = session;
 
   if (!activeCategory) return "waiting";
@@ -36,9 +44,19 @@ function detectPhase(session: JudgeSession): JudgePhase {
     sub.scoreCards.find((sc) => sc.judgeId === judgeId)
   );
 
-  // All locked = done
+  // All locked = done (or comment cards)
   const allLocked = scoreCards.every((sc) => sc?.locked);
-  if (allLocked) return "done";
+  if (allLocked) {
+    // Check if comment cards are enabled and not yet done
+    if (
+      session.commentCardsEnabled &&
+      activeCategory &&
+      !commentCardsDone[activeCategory.id]
+    ) {
+      return "comment-cards";
+    }
+    return "done";
+  }
 
   // Check if appearance is done for all
   const allAppearanceDone = scoreCards.every((sc) => sc?.appearanceSubmittedAt);
@@ -51,7 +69,24 @@ function detectPhase(session: JudgeSession): JudgePhase {
 export function JudgeDashboardClient({ cbjNumber, judgeName, competitionInfo }: Props) {
   const [session, setSession] = useState<JudgeSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [commentCardsDone, setCommentCardsDone] = useState<Record<string, boolean>>({});
   const { fontSize, increase, decrease } = useFontSize();
+
+  // Hydrate localStorage state
+  useEffect(() => {
+    if (session) {
+      const compId = session.table.competitionId;
+      const started = localStorage.getItem(`bbq-judge-started-${compId}`) === "true";
+      setHasStarted(started);
+
+      if (session.activeCategory) {
+        const crId = session.activeCategory.id;
+        const done = localStorage.getItem(`bbq-judge-comments-done-${crId}`) === "true";
+        setCommentCardsDone((prev) => ({ ...prev, [crId]: done }));
+      }
+    }
+  }, [session]);
 
   const loadSession = useCallback(async () => {
     const result = await getJudgeSession(cbjNumber);
@@ -85,22 +120,55 @@ export function JudgeDashboardClient({ cbjNumber, judgeName, competitionInfo }: 
     );
   }
 
-  const phase = detectPhase(session);
+  const phase = detectPhase(session, hasStarted, commentCardsDone);
   const { activeCategory, assignedSubmissions } = session;
+
+  function handleStart() {
+    const compId = session!.table.competitionId;
+    localStorage.setItem(`bbq-judge-started-${compId}`, "true");
+    setHasStarted(true);
+  }
+
+  function handleCommentCardsDone() {
+    if (activeCategory) {
+      localStorage.setItem(`bbq-judge-comments-done-${activeCategory.id}`, "true");
+      setCommentCardsDone((prev) => ({ ...prev, [activeCategory.id]: true }));
+    }
+  }
 
   return (
     <div style={{ zoom: fontSize / 16 }}>
-      {/* Minimal top info bar for judge */}
-      <div className="mb-4 space-y-2 px-2">
-        <div className="text-sm text-muted-foreground">
-          {judgeName} — Table {session.table.tableNumber}, Seat {session.seatNumber}
+      {/* Minimal top info bar for judge (hide on event-info) */}
+      {phase !== "event-info" && (
+        <div className="mb-4 space-y-2 px-2">
+          <div className="text-sm text-muted-foreground">
+            {judgeName} — Table {session.table.tableNumber}, Seat {session.seatNumber}
+          </div>
+          <FontSizeControl
+            fontSize={fontSize}
+            onIncrease={increase}
+            onDecrease={decrease}
+          />
         </div>
-        <FontSizeControl
-          fontSize={fontSize}
-          onIncrease={increase}
-          onDecrease={decrease}
+      )}
+
+      {phase === "event-info" && competitionInfo && (
+        <EventInfoScreen
+          competitionName={competitionInfo.name}
+          date={competitionInfo.date}
+          city={session.city}
+          state={session.state}
+          location={competitionInfo.location}
+          organizerName={session.organizerName}
+          kcbsRepName={session.kcbsRepName}
+          tableNumber={session.table.tableNumber}
+          seatNumber={session.seatNumber}
+          judgeName={judgeName}
+          cbjNumber={cbjNumber}
+          competitionStatus={session.competitionStatus}
+          onStart={handleStart}
         />
-      </div>
+      )}
 
       {phase === "waiting" && (
         <div className="mx-auto max-w-sm space-y-6 px-4 py-8">
@@ -161,6 +229,17 @@ export function JudgeDashboardClient({ cbjNumber, judgeName, competitionInfo }: 
           submissions={assignedSubmissions}
           judgeId={session.judge.id}
           onDone={loadSession}
+        />
+      )}
+
+      {phase === "comment-cards" && activeCategory && (
+        <CommentCardScreen
+          categoryName={activeCategory.categoryName}
+          categoryRoundId={activeCategory.id}
+          submissions={assignedSubmissions}
+          judgeId={session.judge.id}
+          cbjNumber={cbjNumber}
+          onDone={handleCommentCardsDone}
         />
       )}
 

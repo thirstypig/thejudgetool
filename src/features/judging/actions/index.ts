@@ -155,6 +155,19 @@ export async function getJudgeSession(
 
   const resolvedCompetitionId = assignment.table.competitionId;
 
+  // Fetch competition details for event info + comment cards
+  const competition = await prisma.competition.findUnique({
+    where: { id: resolvedCompetitionId },
+    select: {
+      status: true,
+      commentCardsEnabled: true,
+      organizerName: true,
+      kcbsRepName: true,
+      city: true,
+      state: true,
+    },
+  });
+
   // Find the active category round
   const activeCategory = await prisma.categoryRound.findFirst({
     where: { competitionId: resolvedCompetitionId, status: CATEGORY_STATUS.ACTIVE },
@@ -193,6 +206,12 @@ export async function getJudgeSession(
     seatNumber: assignment.seatNumber ?? 0,
     activeCategory,
     assignedSubmissions,
+    competitionStatus: competition?.status ?? "SETUP",
+    commentCardsEnabled: competition?.commentCardsEnabled ?? false,
+    organizerName: competition?.organizerName ?? null,
+    kcbsRepName: competition?.kcbsRepName ?? null,
+    city: competition?.city ?? null,
+    state: competition?.state ?? null,
   };
 }
 
@@ -500,6 +519,75 @@ export async function submitAppearanceScores(
   }
 
   revalidatePath("/judge");
+}
+
+// --- Comment Card Actions ---
+
+export async function submitCommentCard(
+  submissionId: string,
+  judgeId: string,
+  categoryRoundId: string,
+  data: {
+    otherLine?: string;
+    appearanceText?: string;
+    tasteChecks?: string[];
+    tendernessChecks?: string[];
+    otherComments?: string;
+  }
+) {
+  await requireJudge();
+
+  // Get the scorecard to auto-populate scores
+  const scoreCard = await prisma.scoreCard.findUnique({
+    where: { submissionId_judgeId: { submissionId, judgeId } },
+  });
+  if (!scoreCard) throw new Error("Score card not found");
+
+  const commentCard = await prisma.commentCard.upsert({
+    where: { submissionId_judgeId: { submissionId, judgeId } },
+    create: {
+      submissionId,
+      judgeId,
+      categoryRoundId,
+      appearanceScore: scoreCard.appearance,
+      tasteScore: scoreCard.taste,
+      textureScore: scoreCard.texture,
+      otherLine: data.otherLine || null,
+      appearanceText: data.appearanceText || null,
+      tasteChecks: data.tasteChecks || [],
+      tendernessChecks: data.tendernessChecks || [],
+      otherComments: data.otherComments || null,
+    },
+    update: {
+      appearanceScore: scoreCard.appearance,
+      tasteScore: scoreCard.taste,
+      textureScore: scoreCard.texture,
+      otherLine: data.otherLine || null,
+      appearanceText: data.appearanceText || null,
+      tasteChecks: data.tasteChecks || [],
+      tendernessChecks: data.tendernessChecks || [],
+      otherComments: data.otherComments || null,
+    },
+  });
+
+  revalidatePath("/judge");
+  return commentCard;
+}
+
+export async function getCommentCardsForJudge(
+  judgeId: string,
+  categoryRoundId: string
+) {
+  const commentCards = await prisma.commentCard.findMany({
+    where: { judgeId, categoryRoundId },
+    include: {
+      submission: {
+        select: { id: true, boxNumber: true, boxCode: true },
+      },
+    },
+    orderBy: { submission: { boxNumber: "asc" } },
+  });
+  return commentCards;
 }
 
 // --- Taste + Texture Scoring (per box) ---

@@ -110,6 +110,46 @@ export const CORRECTION_STATUS = {
 export type CorrectionStatus =
   (typeof CORRECTION_STATUS)[keyof typeof CORRECTION_STATUS];
 
+// --- Comment Card Options ---
+
+export const TASTE_COMMENT_OPTIONS = [
+  "Too salty",
+  "Too peppery",
+  "Too sour",
+  "Too sweet",
+  "Bitter",
+  "Too smoky",
+  "Too spicy",
+  "Hot",
+  "Too much sauce",
+  "Bland/no flavor",
+  "Burnt",
+  "Greasy",
+  "Dislike unknown flavor",
+  "Pleasant",
+  "Satisfying",
+  "Enjoyable",
+  "Savory",
+] as const;
+
+export const TENDERNESS_COMMENT_OPTIONS = [
+  "Meets KCBS standard tenderness test",
+  "Too tender",
+  "Too tough",
+  "Undercooked",
+  "Overcooked",
+  "Chewy",
+  "Dry",
+  "Crunchy",
+  "Mushy",
+  "Fatty",
+  "Rubbery",
+  "Grainy/Gristle",
+  "Pleasant",
+  "Satisfying",
+  "Enjoyable",
+] as const;
+
 export const CATEGORY_TYPES = {
   MANDATORY: "MANDATORY",
   OPTIONAL: "OPTIONAL",

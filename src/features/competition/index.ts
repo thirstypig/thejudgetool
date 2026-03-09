@@ -5,7 +5,7 @@ export {
   CompetitionProvider,
   useCompetition,
 } from "./components/CompetitionProvider";
-export { JudgeRosterPanel } from "./components/JudgeRosterPanel";
+export { JudgeManagementTabs } from "./components/JudgeManagementTabs";
 export { CreateCompetitionSection } from "./components/CreateCompetitionSection";
 export {
   CompetitorListRoot,
@@ -18,11 +18,13 @@ export {
   TableSetupPanelTableCard,
   TableSetupPanelAssignForm,
 } from "./components/TableSetupPanel";
+export { CommentCardToggle } from "./components/CommentCardToggle";
 export {
   getCompetitions,
   getCompetitionById,
   getCompetitionRoster,
   advanceCategoryRound,
+  toggleCommentCards,
 } from "./actions";
 export type {
   CompetitionWithRelations,

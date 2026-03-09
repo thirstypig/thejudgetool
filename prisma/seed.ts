@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
   // Clean existing data (order matters for FK constraints)
   await prisma.auditLog.deleteMany();
+  await prisma.commentCard.deleteMany();
   await prisma.correctionRequest.deleteMany();
   await prisma.scoreCard.deleteMany();
   await prisma.submission.deleteMany();
@@ -24,6 +25,11 @@ async function main() {
       location: "Kansas City, MO",
       status: "ACTIVE",
       judgePin: "1234",
+      commentCardsEnabled: true,
+      organizerName: "Sarah Mitchell",
+      kcbsRepName: "Bob Thompson",
+      city: "Kansas City",
+      state: "MO",
     },
   });
 
@@ -38,22 +44,27 @@ async function main() {
     },
   });
 
-  // --- 12 Judges (CBJ 1 through 12) ---
+  // --- 24 Judges ---
   const judgeNames = [
     "Marcus Johnson", "Lisa Chen", "David Williams", "Angela Rodriguez",
     "Robert Kim", "Patricia Brown", "James Wilson", "Maria Garcia",
     "Thomas Lee", "Jennifer Martinez", "William Davis", "Sandra Taylor",
+    "Michael Thompson", "Karen White", "Christopher Harris", "Donna Clark",
+    "Daniel Lewis", "Nancy Walker", "Matthew Robinson", "Betty Hall",
+    "Andrew Young", "Dorothy King", "Joshua Wright", "Helen Lopez",
   ];
 
+  // Table captains: judges 1, 7, 13, 19 (one per table)
+  const captainIndices = new Set([0, 6, 12, 18]);
+
   const judges = [];
-  for (let i = 1; i <= 12; i++) {
+  for (let i = 1; i <= 24; i++) {
     const judge = await prisma.user.create({
       data: {
-        cbjNumber: String(i),
+        cbjNumber: String(i).padStart(3, "0"),
         name: judgeNames[i - 1],
         email: `judge${i}@bbq-judge.test`,
-        // 1 and 7 are table captains
-        role: i === 1 || i === 7 ? "TABLE_CAPTAIN" : "JUDGE",
+        role: captainIndices.has(i - 1) ? "TABLE_CAPTAIN" : "JUDGE",
         pin: "1234",
       },
     });
@@ -72,45 +83,37 @@ async function main() {
     });
   }
 
-  // --- Table 1: Judge 1 (captain), Judges 2 through 6 ---
-  const table1 = await prisma.table.create({
-    data: {
-      competitionId: competition.id,
-      tableNumber: 1,
-      captainId: judges[0].id,
-    },
-  });
+  // --- 4 Tables, 6 judges each ---
+  const tableConfigs = [
+    { number: 1, captainIdx: 0, judgeStart: 0 },
+    { number: 2, captainIdx: 6, judgeStart: 6 },
+    { number: 3, captainIdx: 12, judgeStart: 12 },
+    { number: 4, captainIdx: 18, judgeStart: 18 },
+  ];
 
-  for (let i = 0; i < 6; i++) {
-    await prisma.tableAssignment.create({
+  const tableRecords = [];
+  for (const tc of tableConfigs) {
+    const table = await prisma.table.create({
       data: {
-        tableId: table1.id,
-        userId: judges[i].id,
-        seatNumber: i + 1,
+        competitionId: competition.id,
+        tableNumber: tc.number,
+        captainId: judges[tc.captainIdx].id,
       },
     });
+    tableRecords.push(table);
+
+    for (let i = 0; i < 6; i++) {
+      await prisma.tableAssignment.create({
+        data: {
+          tableId: table.id,
+          userId: judges[tc.judgeStart + i].id,
+          seatNumber: i + 1,
+        },
+      });
+    }
   }
 
-  // --- Table 2: Judge 7 (captain), Judges 8 through 12 ---
-  const table2 = await prisma.table.create({
-    data: {
-      competitionId: competition.id,
-      tableNumber: 2,
-      captainId: judges[6].id,
-    },
-  });
-
-  for (let i = 6; i < 12; i++) {
-    await prisma.tableAssignment.create({
-      data: {
-        tableId: table2.id,
-        userId: judges[i].id,
-        seatNumber: i - 5, // seats 1-6
-      },
-    });
-  }
-
-  // --- 6 Competitors ---
+  // --- 24 Competitors ---
   const competitorData = [
     { anonymousNumber: "101", teamName: "Smokin' Aces" },
     { anonymousNumber: "102", teamName: "Pit Masters United" },
@@ -118,6 +121,24 @@ async function main() {
     { anonymousNumber: "104", teamName: "The Rib Whisperers" },
     { anonymousNumber: "105", teamName: "Flame & Fortune" },
     { anonymousNumber: "106", teamName: "Low & Slow Legends" },
+    { anonymousNumber: "107", teamName: "Char & Barrel" },
+    { anonymousNumber: "108", teamName: "Backyard Champions" },
+    { anonymousNumber: "109", teamName: "Smoke Ring Society" },
+    { anonymousNumber: "110", teamName: "The Brisket Brothers" },
+    { anonymousNumber: "111", teamName: "Ember & Oak" },
+    { anonymousNumber: "112", teamName: "Pitfire Collective" },
+    { anonymousNumber: "113", teamName: "Sweet Heat BBQ" },
+    { anonymousNumber: "114", teamName: "Burnin' Love Smokehouse" },
+    { anonymousNumber: "115", teamName: "Ash & Iron" },
+    { anonymousNumber: "116", teamName: "Hickory Haven" },
+    { anonymousNumber: "117", teamName: "Smoke Signal BBQ" },
+    { anonymousNumber: "118", teamName: "The Grill Sergeants" },
+    { anonymousNumber: "119", teamName: "Red Oak Revival" },
+    { anonymousNumber: "120", teamName: "Mesquite Mavericks" },
+    { anonymousNumber: "121", teamName: "Carbon & Spice" },
+    { anonymousNumber: "122", teamName: "Pitmaster's Pride" },
+    { anonymousNumber: "123", teamName: "Southern Comfort Q" },
+    { anonymousNumber: "124", teamName: "Firebox Legends" },
   ];
 
   const competitors = [];
@@ -129,7 +150,6 @@ async function main() {
   }
 
   // --- 4 KCBS Category Rounds ---
-  // Chicken = ACTIVE, rest = PENDING
   const categories = [
     { name: "Chicken", order: 1, status: "ACTIVE" },
     { name: "Pork Ribs", order: 2, status: "PENDING" },
@@ -154,38 +174,28 @@ async function main() {
   const chickenRound = rounds[0];
 
   // --- Submissions for Chicken round ---
-  // Table 1 gets all 6 competitors for Chicken
-  const table1Submissions = [];
-  for (let i = 0; i < 6; i++) {
-    const sub = await prisma.submission.create({
-      data: {
-        competitorId: competitors[i].id,
-        categoryRoundId: chickenRound.id,
-        tableId: table1.id,
-        boxNumber: i + 1,
-        boxCode: competitors[i].anonymousNumber,
-      },
-    });
-    table1Submissions.push(sub);
+  // Each table gets 6 competitors (24 total, 6 per table)
+  for (let tableIdx = 0; tableIdx < 4; tableIdx++) {
+    for (let i = 0; i < 6; i++) {
+      const compIdx = tableIdx * 6 + i;
+      await prisma.submission.create({
+        data: {
+          competitorId: competitors[compIdx].id,
+          categoryRoundId: chickenRound.id,
+          tableId: tableRecords[tableIdx].id,
+          boxNumber: i + 1,
+          boxCode: competitors[compIdx].anonymousNumber,
+        },
+      });
+    }
   }
 
-  // Table 2 gets all 6 competitors for Chicken (different table, OK per BR-2)
-  const table2Submissions = [];
-  for (let i = 0; i < 6; i++) {
-    const sub = await prisma.submission.create({
-      data: {
-        competitorId: competitors[i].id,
-        categoryRoundId: chickenRound.id,
-        tableId: table2.id,
-        boxNumber: i + 1,
-        boxCode: competitors[i].anonymousNumber,
-      },
-    });
-    table2Submissions.push(sub);
-  }
+  // --- Pre-fill scorecards for Table 1 Chicken (first 4 competitors) ---
+  const table1Submissions = await prisma.submission.findMany({
+    where: { tableId: tableRecords[0].id, categoryRoundId: chickenRound.id },
+    orderBy: { boxNumber: "asc" },
+  });
 
-  // --- Pre-fill scorecards for Table 1 Chicken ---
-  // Generate realistic KCBS scores (valid: 1, 2, 5, 6, 7, 8, 9)
   const scoreData = [
     // competitor 101: strong across the board
     { app: 8, taste: 9, tex: 8 },
@@ -215,22 +225,18 @@ async function main() {
     { app: 1, taste: 7, tex: 7 }, // DQ from judge 4 (appearance = 1)
     { app: 7, taste: 8, tex: 7 },
     null, // Judge 6 hasn't scored yet
-    // competitor 105: not scored yet (judges haven't gotten here)
-    // competitor 106: not scored yet
   ];
 
-  // Create score cards for Table 1 — first 4 competitors scored by judges 1-6
   let scoreIdx = 0;
   for (let compIdx = 0; compIdx < 4; compIdx++) {
     for (let judgeIdx = 0; judgeIdx < 6; judgeIdx++) {
       const scores = scoreData[scoreIdx];
       scoreIdx++;
 
-      if (scores === null) continue; // skip unscored
+      if (scores === null) continue;
 
-      const isLocked = true; // all submitted scores are locked
       const submittedAt = new Date(
-        Date.now() - (24 - scoreIdx) * 60 * 1000 // stagger timestamps
+        Date.now() - (24 - scoreIdx) * 60 * 1000
       );
 
       await prisma.scoreCard.create({
@@ -240,7 +246,7 @@ async function main() {
           appearance: scores.app,
           taste: scores.taste,
           texture: scores.tex,
-          locked: isLocked,
+          locked: true,
           submittedAt,
           appearanceSubmittedAt: submittedAt,
         },
@@ -248,11 +254,10 @@ async function main() {
     }
   }
 
-  // --- Create a pending correction request for the DQ score ---
-  // Judge 4 (judges[3]) wants to correct their DQ score on competitor 104
+  // --- Pending correction request for DQ score ---
   const dqScoreCard = await prisma.scoreCard.findFirst({
     where: {
-      submissionId: table1Submissions[3].id, // competitor 104
+      submissionId: table1Submissions[3].id,
       judgeId: judges[3].id,
     },
   });
@@ -262,7 +267,8 @@ async function main() {
       data: {
         scoreCardId: dqScoreCard.id,
         judgeId: judges[3].id,
-        reason: "I accidentally submitted a 1 (DQ) for appearance. The chicken had good presentation and I meant to score a 7.",
+        reason:
+          "I accidentally submitted a 1 (DQ) for appearance. The chicken had good presentation and I meant to score a 7.",
         status: "PENDING",
       },
     });
@@ -295,16 +301,19 @@ async function main() {
   console.log("  ───────────────────────────────────────────────");
   console.log("  Organizer:  organizer@bbq-judge.test / organizer123");
   console.log("  ───────────────────────────────────────────────");
-  console.log("  Table 1:    CBJ 1 (captain) + CBJ 2–6, PIN: 1234");
-  console.log("  Table 2:    CBJ 7 (captain) + CBJ 8–12, PIN: 1234");
+  console.log("  24 Judges:  CBJ-001 through CBJ-024, PIN: 1234");
+  console.log("  Table 1:    CBJ-001 (captain) + CBJ-002–006");
+  console.log("  Table 2:    CBJ-007 (captain) + CBJ-008–012");
+  console.log("  Table 3:    CBJ-013 (captain) + CBJ-014–018");
+  console.log("  Table 4:    CBJ-019 (captain) + CBJ-020–024");
   console.log("  ───────────────────────────────────────────────");
-  console.log("  Competitors: 101–106 (6 teams)");
+  console.log("  24 Competitors: 101–124");
   console.log("  Categories:  Chicken (ACTIVE) | Pork Ribs, Pork, Brisket (PENDING)");
   console.log("  ───────────────────────────────────────────────");
   console.log("  Pre-filled:  Table 1 Chicken — 4 of 6 competitors scored");
   console.log("               Competitor 104 has a DQ score + pending correction");
   console.log("               Competitors 105, 106 await scoring");
-  console.log("               Table 2 has no scores yet\n");
+  console.log("               Tables 2–4 have no scores yet\n");
 }
 
 main()

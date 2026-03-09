@@ -16,7 +16,7 @@ export const competitorSchema = z.object({
   teamName: z.string().min(1, "Team name is required"),
   anonymousNumber: z
     .string()
-    .regex(/^\d{3}$/, "Must be exactly 3 digits"),
+    .regex(/^\d{1,4}$/, "Must be 1–4 digits"),
   headCookName: z.string().optional(),
   headCookKcbsNumber: z.string().optional(),
 });

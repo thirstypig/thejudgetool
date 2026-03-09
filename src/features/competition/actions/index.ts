@@ -432,3 +432,153 @@ export async function advanceCategoryRound(competitionId: string) {
   revalidatePath(`/organizer/${competitionId}/status`);
   return round;
 }
+
+// --- Unregister Judge from Competition ---
+
+export async function unregisterJudgeFromCompetition(
+  competitionJudgeId: string
+) {
+  await requireOrganizer();
+
+  const registration = await prisma.competitionJudge.findUnique({
+    where: { id: competitionJudgeId },
+  });
+
+  if (!registration) throw new Error("Registration not found");
+
+  // Check if judge has score cards in this competition
+  const scoreCards = await prisma.scoreCard.findFirst({
+    where: {
+      judgeId: registration.userId,
+      submission: {
+        categoryRound: { competitionId: registration.competitionId },
+      },
+    },
+  });
+
+  if (scoreCards) {
+    throw new Error(
+      "Cannot remove a judge who has submitted score cards. Delete their scores first."
+    );
+  }
+
+  // Remove table assignment if any
+  await prisma.tableAssignment.deleteMany({
+    where: {
+      userId: registration.userId,
+      table: { competitionId: registration.competitionId },
+    },
+  });
+
+  await prisma.competitionJudge.delete({
+    where: { id: competitionJudgeId },
+  });
+
+  revalidatePath(`/organizer/${registration.competitionId}/judges`);
+}
+
+// --- Random Assign Tables ---
+
+export async function randomAssignTables(competitionId: string) {
+  await requireOrganizer();
+
+  // Get checked-in judges without table assignments
+  const roster = await getCompetitionRoster(competitionId);
+  const unassigned = roster.filter(
+    (r) => r.checkedIn && !r.tableAssignment
+  );
+
+  if (unassigned.length === 0) {
+    throw new Error("No checked-in judges without table assignments");
+  }
+
+  // Fisher-Yates shuffle
+  const shuffled = [...unassigned];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Get existing tables with their assignment counts
+  const existingTables = await prisma.table.findMany({
+    where: { competitionId },
+    orderBy: { tableNumber: "asc" },
+    include: { _count: { select: { assignments: true } } },
+  });
+
+  // Build table slots: existing tables with available seats
+  const tableSlots: { tableNumber: number; available: number }[] =
+    existingTables
+      .map((t) => ({
+        tableNumber: t.tableNumber,
+        available: 6 - t._count.assignments,
+      }))
+      .filter((t) => t.available > 0);
+
+  // Calculate how many more slots we need
+  let totalAvailable = tableSlots.reduce((sum, t) => sum + t.available, 0);
+  let nextTableNumber =
+    existingTables.length > 0
+      ? Math.max(...existingTables.map((t) => t.tableNumber)) + 1
+      : 1;
+
+  while (totalAvailable < shuffled.length) {
+    tableSlots.push({ tableNumber: nextTableNumber, available: 6 });
+    totalAvailable += 6;
+    nextTableNumber++;
+  }
+
+  // Round-robin assign
+  let slotIdx = 0;
+  for (const judge of shuffled) {
+    // Find next table with available slots
+    while (tableSlots[slotIdx].available <= 0) {
+      slotIdx = (slotIdx + 1) % tableSlots.length;
+    }
+
+    const tableNumber = tableSlots[slotIdx].tableNumber;
+
+    // Find or create table
+    let table = await prisma.table.findUnique({
+      where: { competitionId_tableNumber: { competitionId, tableNumber } },
+    });
+    if (!table) {
+      table = await prisma.table.create({
+        data: { competitionId, tableNumber },
+      });
+    }
+
+    // Check if already assigned (shouldn't happen but be safe)
+    const existing = await prisma.tableAssignment.findFirst({
+      where: { userId: judge.userId, table: { competitionId } },
+    });
+    if (!existing) {
+      await prisma.tableAssignment.create({
+        data: { tableId: table.id, userId: judge.userId, seatNumber: null },
+      });
+    }
+
+    tableSlots[slotIdx].available--;
+    slotIdx = (slotIdx + 1) % tableSlots.length;
+  }
+
+  revalidatePath(`/organizer/${competitionId}/judges`);
+  revalidatePath(`/organizer/${competitionId}/setup`);
+  return { assigned: shuffled.length };
+}
+
+// --- Toggle Comment Cards ---
+
+export async function toggleCommentCards(
+  competitionId: string,
+  enabled: boolean
+) {
+  await requireOrganizer();
+
+  await prisma.competition.update({
+    where: { id: competitionId },
+    data: { commentCardsEnabled: enabled },
+  });
+
+  revalidatePath(`/organizer/${competitionId}/setup`);
+}

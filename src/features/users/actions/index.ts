@@ -43,6 +43,36 @@ export async function importSingleJudge(data: {
   return user;
 }
 
+// --- Search Judges (CBJ Directory) ---
+
+export async function searchJudges(query: string) {
+  await requireOrganizer();
+
+  if (!query || query.trim().length < 1) return [];
+
+  const trimmed = query.trim();
+
+  const users = await prisma.user.findMany({
+    where: {
+      role: { in: ["JUDGE", "TABLE_CAPTAIN"] },
+      OR: [
+        { cbjNumber: { contains: trimmed, mode: "insensitive" } },
+        { name: { contains: trimmed, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      cbjNumber: true,
+      name: true,
+      role: true,
+    },
+    orderBy: { cbjNumber: "asc" },
+    take: 20,
+  });
+
+  return users;
+}
+
 export async function importJudgesBulk(raw: string): Promise<ImportResult> {
   await requireOrganizer();
 

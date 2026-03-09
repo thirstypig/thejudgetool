@@ -32,16 +32,24 @@ export type JudgeSession = {
     "id" | "categoryName" | "status" | "order"
   > | null;
   assignedSubmissions: SubmissionWithDetails[];
+  competitionStatus: string;
+  commentCardsEnabled: boolean;
+  organizerName: string | null;
+  kcbsRepName: string | null;
+  city: string | null;
+  state: string | null;
 };
 
 /** Phase the judge is currently in */
 export type JudgePhase =
-  | "no-table"       // needs to self-register at a table
-  | "waiting"        // no active category
-  | "box-entry"      // active category, no boxes for this table/round
-  | "appearance"     // boxes exist, appearance not done
-  | "taste-texture"  // appearance done, taste/texture not done
-  | "done";          // all scores submitted
+  | "no-table"        // needs to self-register at a table
+  | "event-info"      // pre-judging event info screen
+  | "waiting"         // no active category
+  | "box-entry"       // active category, no boxes for this table/round
+  | "appearance"      // boxes exist, appearance not done
+  | "taste-texture"   // appearance done, taste/texture not done
+  | "comment-cards"   // all scores submitted, comment cards pending
+  | "done";           // all scores submitted
 
 export type BoxEntry = {
   id: string;
