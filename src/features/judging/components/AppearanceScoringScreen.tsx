@@ -64,7 +64,7 @@ export function AppearanceScoringScreen({
         submissionId: sub.id,
         appearance: scores[sub.id]!,
       }));
-      await submitAppearanceScores(judgeId, scoreData);
+      await submitAppearanceScores(scoreData);
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit");

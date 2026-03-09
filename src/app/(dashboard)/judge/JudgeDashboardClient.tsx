@@ -89,10 +89,10 @@ export function JudgeDashboardClient({ cbjNumber, judgeName, competitionInfo }: 
   }, [session]);
 
   const loadSession = useCallback(async () => {
-    const result = await getJudgeSession(cbjNumber);
+    const result = await getJudgeSession();
     setSession(result);
     setLoading(false);
-  }, [cbjNumber]);
+  }, []);
 
   useEffect(() => {
     loadSession();
@@ -208,7 +208,6 @@ export function JudgeDashboardClient({ cbjNumber, judgeName, competitionInfo }: 
           tableId={session.table.id}
           categoryRoundId={activeCategory.id}
           categoryName={activeCategory.categoryName}
-          judgeId={session.judge.id}
           initialBoxes={[]}
           onDone={loadSession}
         />

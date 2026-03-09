@@ -12,7 +12,6 @@ interface BoxEntryScreenProps {
   tableId: string;
   categoryRoundId: string;
   categoryName: string;
-  judgeId: string;
   initialBoxes: BoxEntry[];
   onDone: () => void;
 }
@@ -21,7 +20,6 @@ export function BoxEntryScreen({
   tableId,
   categoryRoundId,
   categoryName,
-  judgeId,
   initialBoxes,
   onDone,
 }: BoxEntryScreenProps) {
@@ -36,7 +34,7 @@ export function BoxEntryScreen({
     setError(null);
     setLoading(true);
     try {
-      const entry = await addBoxToTable(tableId, categoryRoundId, boxCode, judgeId);
+      const entry = await addBoxToTable(tableId, categoryRoundId, boxCode);
       setBoxes((prev) => [...prev, entry]);
       setCode("");
       inputRef.current?.focus();
@@ -45,7 +43,7 @@ export function BoxEntryScreen({
     } finally {
       setLoading(false);
     }
-  }, [tableId, categoryRoundId, judgeId]);
+  }, [tableId, categoryRoundId]);
 
   async function handleRemove(submissionId: string) {
     setError(null);

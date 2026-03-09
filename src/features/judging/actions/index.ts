@@ -1,29 +1,16 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
-import { auth } from "@/shared/lib/auth";
+import { requireJudge } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
-import type { Session } from "next-auth";
 import { CATEGORY_STATUS } from "@/shared/constants/kcbs";
 import { scorecardSchema, correctionSchema, tableSetupSchema, boxCodeSchema } from "../schemas";
 import type { JudgeSession, JudgeSetupState, SubmissionWithDetails, BoxEntry } from "../types";
 
-async function requireJudge() {
-  const session = (await auth()) as Session | null;
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || (role !== "JUDGE" && role !== "TABLE_CAPTAIN")) {
-    throw new Error("Unauthorized: must be a judge");
-  }
-  const cbjNumber = (session.user as { cbjNumber?: string }).cbjNumber;
-  if (!cbjNumber) throw new Error("Unauthorized: missing CBJ number");
-  return { session, cbjNumber };
-}
-
 // --- Get Judge Setup State ---
 
-export async function getJudgeSetupState(
-  cbjNumber: string
-): Promise<JudgeSetupState> {
+export async function getJudgeSetupState(): Promise<JudgeSetupState> {
+  const { cbjNumber } = await requireJudge();
   const judge = await prisma.user.findUnique({
     where: { cbjNumber },
   });
@@ -127,9 +114,9 @@ export async function claimSeat(assignmentId: string, seatNumber: number) {
 // --- Get Judge Session ---
 
 export async function getJudgeSession(
-  cbjNumber: string,
   competitionId?: string
 ): Promise<JudgeSession | null> {
+  const { cbjNumber } = await requireJudge();
   const judge = await prisma.user.findUnique({
     where: { cbjNumber },
     select: { id: true, name: true, cbjNumber: true },
@@ -218,9 +205,9 @@ export async function getJudgeSession(
 // --- Get Submissions for Judge ---
 
 export async function getSubmissionsForJudge(
-  judgeId: string,
   categoryRoundId: string
 ): Promise<SubmissionWithDetails[]> {
+  const { userId: judgeId } = await requireJudge();
   // Find the judge's table
   const assignment = await prisma.tableAssignment.findFirst({
     where: {
@@ -264,10 +251,9 @@ export async function getSubmissionsForJudge(
 
 export async function submitScoreCard(
   submissionId: string,
-  judgeId: string,
   scores: { appearance: number; taste: number; texture: number }
 ) {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
   const parsed = scorecardSchema.parse(scores);
 
   // Check if a score card already exists (prevent double submission)
@@ -308,10 +294,9 @@ export async function submitScoreCard(
 
 export async function requestCorrection(
   scorecardId: string,
-  judgeId: string,
   reason: string
 ) {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
   const parsed = correctionSchema.parse({ reason });
 
   // Verify the score card belongs to the judge and is locked
@@ -346,6 +331,7 @@ export async function getActiveCompetitionForJudge(): Promise<{
   date: Date;
   location: string;
 } | null> {
+  await requireJudge();
   const competition = await prisma.competition.findFirst({
     where: { status: { in: ["SETUP", "ACTIVE"] } },
     select: { id: true, name: true, date: true, location: true },
@@ -419,10 +405,9 @@ export async function registerJudgeAtTable(
 export async function addBoxToTable(
   tableId: string,
   categoryRoundId: string,
-  boxCode: string,
-  judgeId: string
+  boxCode: string
 ): Promise<BoxEntry> {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
   const parsedCode = boxCodeSchema.parse(boxCode);
 
   // Check for duplicate box code
@@ -480,6 +465,7 @@ export async function getBoxesForTable(
   tableId: string,
   categoryRoundId: string
 ): Promise<BoxEntry[]> {
+  await requireJudge();
   const submissions = await prisma.submission.findMany({
     where: { tableId, categoryRoundId },
     select: { id: true, boxCode: true, boxNumber: true },
@@ -491,32 +477,35 @@ export async function getBoxesForTable(
 // --- Appearance Scoring (batch) ---
 
 export async function submitAppearanceScores(
-  judgeId: string,
   scores: Array<{ submissionId: string; appearance: number }>
 ) {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
 
-  const now = new Date();
-  for (const { submissionId, appearance } of scores) {
-    const validScores = new Set([1, 2, 5, 6, 7, 8, 9]);
+  const validScores = new Set([1, 2, 5, 6, 7, 8, 9]);
+  for (const { appearance } of scores) {
     if (!validScores.has(appearance)) {
       throw new Error("Score must be one of: 1, 2, 5, 6, 7, 8, 9");
     }
-
-    await prisma.scoreCard.upsert({
-      where: { submissionId_judgeId: { submissionId, judgeId } },
-      create: {
-        submissionId,
-        judgeId,
-        appearance,
-        appearanceSubmittedAt: now,
-      },
-      update: {
-        appearance,
-        appearanceSubmittedAt: now,
-      },
-    });
   }
+
+  const now = new Date();
+  await prisma.$transaction(
+    scores.map(({ submissionId, appearance }) =>
+      prisma.scoreCard.upsert({
+        where: { submissionId_judgeId: { submissionId, judgeId } },
+        create: {
+          submissionId,
+          judgeId,
+          appearance,
+          appearanceSubmittedAt: now,
+        },
+        update: {
+          appearance,
+          appearanceSubmittedAt: now,
+        },
+      })
+    )
+  );
 
   revalidatePath("/judge");
 }
@@ -525,7 +514,6 @@ export async function submitAppearanceScores(
 
 export async function submitCommentCard(
   submissionId: string,
-  judgeId: string,
   categoryRoundId: string,
   data: {
     otherLine?: string;
@@ -535,7 +523,7 @@ export async function submitCommentCard(
     otherComments?: string;
   }
 ) {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
 
   // Get the scorecard to auto-populate scores
   const scoreCard = await prisma.scoreCard.findUnique({
@@ -575,9 +563,9 @@ export async function submitCommentCard(
 }
 
 export async function getCommentCardsForJudge(
-  judgeId: string,
   categoryRoundId: string
 ) {
+  const { userId: judgeId } = await requireJudge();
   const commentCards = await prisma.commentCard.findMany({
     where: { judgeId, categoryRoundId },
     include: {
@@ -594,10 +582,9 @@ export async function getCommentCardsForJudge(
 
 export async function submitTasteTextureScores(
   submissionId: string,
-  judgeId: string,
   scores: { taste: number; texture: number }
 ) {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
 
   const validScores = new Set([1, 2, 5, 6, 7, 8, 9]);
   if (!validScores.has(scores.taste) || !validScores.has(scores.texture)) {
