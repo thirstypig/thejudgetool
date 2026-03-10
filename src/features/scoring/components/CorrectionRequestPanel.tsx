@@ -88,7 +88,7 @@ function RequestCard({
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              Competitor #{sc.submission.competitor?.anonymousNumber ?? sc.submission.boxCode ?? sc.submission.boxNumber} · Box{" "}
+              Team #{sc.submission.competitor?.anonymousNumber ?? sc.submission.boxCode ?? sc.submission.boxNumber} · Box{" "}
               {sc.submission.boxNumber}
             </p>
           </div>

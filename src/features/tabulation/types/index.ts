@@ -7,6 +7,7 @@ export interface CategoryProgress {
   status: string;
   tablesSubmitted: number;
   totalTables: number;
+  captainSubmissions: number;
 }
 
 export interface CompetitionProgress {
@@ -52,4 +53,41 @@ export type AllCategoryResults = Record<string, CategoryResult[]>;
 
 export interface AuditLogEntry extends AuditLog {
   actor: Pick<User, "id" | "name" | "cbjNumber">;
+}
+
+export interface DetailedJudgeScore {
+  judgeId: string;
+  judgeName: string;
+  cbjNumber: string;
+  appearance: number;
+  taste: number;
+  texture: number;
+  weightedAppearance: number;
+  weightedTaste: number;
+  weightedTexture: number;
+  weightedTotal: number;
+  isDropped: boolean;
+  isDQ: boolean;
+}
+
+export interface DetailedCompetitorResult {
+  competitorId: string;
+  anonymousNumber: string;
+  teamName: string;
+  boxNumber: number;
+  judges: DetailedJudgeScore[];
+  top5Total: number;
+  droppedJudgeId: string | null;
+}
+
+export interface DetailedTableResult {
+  tableId: string;
+  tableNumber: number;
+  competitors: DetailedCompetitorResult[];
+}
+
+export interface DetailedCategoryResult {
+  categoryRoundId: string;
+  categoryName: string;
+  tables: DetailedTableResult[];
 }

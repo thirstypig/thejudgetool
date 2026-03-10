@@ -61,7 +61,7 @@ async function main() {
   for (let i = 1; i <= 24; i++) {
     const judge = await prisma.user.create({
       data: {
-        cbjNumber: String(i).padStart(3, "0"),
+        cbjNumber: String(100000 + i),
         name: judgeNames[i - 1],
         email: `judge${i}@bbq-judge.test`,
         role: captainIndices.has(i - 1) ? "TABLE_CAPTAIN" : "JUDGE",
@@ -142,9 +142,17 @@ async function main() {
   ];
 
   const competitors = [];
-  for (const data of competitorData) {
+  for (let idx = 0; idx < competitorData.length; idx++) {
+    const data = competitorData[idx];
+    // First 16 teams are checked in for demo
+    const isCheckedIn = idx < 16;
     const c = await prisma.competitor.create({
-      data: { competitionId: competition.id, ...data },
+      data: {
+        competitionId: competition.id,
+        ...data,
+        checkedIn: isCheckedIn,
+        checkedInAt: isCheckedIn ? new Date() : null,
+      },
     });
     competitors.push(c);
   }
@@ -301,13 +309,13 @@ async function main() {
   console.log("  ───────────────────────────────────────────────");
   console.log("  Organizer:  organizer@bbq-judge.test / organizer123");
   console.log("  ───────────────────────────────────────────────");
-  console.log("  24 Judges:  CBJ-001 through CBJ-024, PIN: 1234");
-  console.log("  Table 1:    CBJ-001 (captain) + CBJ-002–006");
-  console.log("  Table 2:    CBJ-007 (captain) + CBJ-008–012");
-  console.log("  Table 3:    CBJ-013 (captain) + CBJ-014–018");
-  console.log("  Table 4:    CBJ-019 (captain) + CBJ-020–024");
+  console.log("  24 Judges:  100001 through 100024, PIN: 1234");
+  console.log("  Table 1:    100001 (captain) + 100002–100006");
+  console.log("  Table 2:    100007 (captain) + 100008–100012");
+  console.log("  Table 3:    100013 (captain) + 100014–100018");
+  console.log("  Table 4:    100019 (captain) + 100020–100024");
   console.log("  ───────────────────────────────────────────────");
-  console.log("  24 Competitors: 101–124");
+  console.log("  24 BBQ Teams: 101–124 (16 checked in, 8 not)");
   console.log("  Categories:  Chicken (ACTIVE) | Pork Ribs, Pork, Brisket (PENDING)");
   console.log("  ───────────────────────────────────────────────");
   console.log("  Pre-filled:  Table 1 Chicken — 4 of 6 competitors scored");

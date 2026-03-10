@@ -108,18 +108,24 @@ describe("generateBoxDistribution", () => {
     }
   });
 
-  it("assigns correct box numbers (1-based sequential per table)", () => {
+  it("assigns globally unique box numbers (3-4 digit)", () => {
     const competitors = makeCompetitors(24);
     const tables = makeTables(4);
 
     const distribution = generateBoxDistribution(competitors, tables, KCBS_CATEGORIES);
 
+    const allBoxNumbers: number[] = [];
     for (const cat of distribution) {
       for (const table of cat.tables) {
-        const boxNumbers = table.competitors.map((c) => c.boxNumber);
-        expect(boxNumbers).toEqual([1, 2, 3, 4, 5, 6]);
+        for (const comp of table.competitors) {
+          expect(comp.boxNumber).toBeGreaterThanOrEqual(100);
+          expect(comp.boxNumber).toBeLessThanOrEqual(9999);
+          allBoxNumbers.push(comp.boxNumber);
+        }
       }
     }
+    // All box numbers must be unique across entire distribution
+    expect(new Set(allBoxNumbers).size).toBe(allBoxNumbers.length);
   });
 
   it("returns empty for empty inputs", () => {
@@ -156,7 +162,7 @@ describe("validateDistribution", () => {
             tableId: "table-1",
             tableNumber: 1,
             competitors: [
-              { competitorId: "comp-1", anonymousNumber: "101", boxNumber: 1 },
+              { competitorId: "comp-1", anonymousNumber: "101", boxNumber: 100 },
             ],
           },
         ],
@@ -169,7 +175,7 @@ describe("validateDistribution", () => {
             tableId: "table-1",
             tableNumber: 1,
             competitors: [
-              { competitorId: "comp-1", anonymousNumber: "101", boxNumber: 1 },
+              { competitorId: "comp-1", anonymousNumber: "101", boxNumber: 200 },
             ],
           },
         ],

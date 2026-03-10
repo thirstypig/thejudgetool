@@ -50,7 +50,7 @@ export function CompetitionProgressDashboard({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Tables submitted
+                    Tables with all scores locked
                   </span>
                   <span className="font-medium">
                     {cat.tablesSubmitted} / {cat.totalTables}
@@ -62,6 +62,16 @@ export function CompetitionProgressDashboard({
                     style={{ width: `${pct}%` }}
                   />
                 </div>
+                {cat.status === "ACTIVE" && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Captains submitted to organizer
+                    </span>
+                    <span className="font-medium">
+                      {cat.captainSubmissions} / {cat.totalTables}
+                    </span>
+                  </div>
+                )}
               </div>
             </SectionCard.Body>
           </SectionCard.Root>

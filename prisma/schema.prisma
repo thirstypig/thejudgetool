@@ -36,12 +36,14 @@ model Competition {
 }
 
 model Competitor {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   competitionId      String
   anonymousNumber    String   // 3-digit string, unique per competition
   teamName           String
   headCookName       String?
   headCookKcbsNumber String?
+  checkedIn          Boolean   @default(false)
+  checkedInAt        DateTime?
 
   competition Competition  @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   submissions Submission[]

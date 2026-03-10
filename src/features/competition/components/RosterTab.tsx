@@ -24,9 +24,11 @@ export function RosterTab({ competitionId, roster }: RosterTabProps) {
   const [isPending, startTransition] = useTransition();
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  async function handleImported(userIds: string[]) {
-    await registerJudgesBulkForCompetition(competitionId, userIds);
-    startTransition(() => router.refresh());
+  function handleImported(userIds: string[]) {
+    startTransition(async () => {
+      await registerJudgesBulkForCompetition(competitionId, userIds);
+      router.refresh();
+    });
   }
 
   async function handleRemove(registrationId: string) {
@@ -45,7 +47,7 @@ export function RosterTab({ competitionId, roster }: RosterTabProps) {
     {
       header: "CBJ #",
       cell: (row: CompetitionJudgeWithUser) => (
-        <span className="font-mono font-medium">CBJ-{row.user.cbjNumber}</span>
+        <span className="font-mono font-medium">{row.user.cbjNumber}</span>
       ),
     },
     {
@@ -57,7 +59,7 @@ export function RosterTab({ competitionId, roster }: RosterTabProps) {
       cell: (row: CompetitionJudgeWithUser) => (
         <ConfirmDialog
           title="Remove Judge"
-          description={`Remove ${row.user.name} (CBJ-${row.user.cbjNumber}) from this competition?`}
+          description={`Remove ${row.user.name} (${row.user.cbjNumber}) from this competition?`}
           destructive
           onConfirm={() => handleRemove(row.id)}
           trigger={
@@ -98,6 +100,10 @@ export function RosterTab({ competitionId, roster }: RosterTabProps) {
             columns={columns}
             data={roster}
             loading={isPending}
+            searchFn={(item, q) =>
+              item.user.cbjNumber.toLowerCase().includes(q) ||
+              item.user.name.toLowerCase().includes(q)
+            }
             emptyState={
               <p className="py-8 text-center text-sm text-muted-foreground">
                 No judges registered yet. Use the form above to register judges

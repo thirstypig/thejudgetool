@@ -1,6 +1,7 @@
 import type {
   User,
   ScoreCard,
+  CommentCard,
   CorrectionRequest,
   Competitor,
   CategoryRound,
@@ -33,6 +34,16 @@ export type ScoreCardWithJudge = ScoreCard & {
     boxCode: string;
     competitor: Pick<Competitor, "id" | "anonymousNumber"> | null;
     categoryRound: Pick<CategoryRound, "id" | "categoryName">;
+  };
+};
+
+export type CommentCardWithJudge = CommentCard & {
+  judge: Pick<User, "id" | "name" | "cbjNumber">;
+  submission: {
+    id: string;
+    boxNumber: number;
+    boxCode: string;
+    competitor: Pick<Competitor, "id" | "anonymousNumber"> | null;
   };
 };
 

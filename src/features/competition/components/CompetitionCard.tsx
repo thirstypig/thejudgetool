@@ -47,7 +47,7 @@ export function CompetitionCard({ competition }: CompetitionCardProps) {
         <div className="flex gap-4">
           <span className="flex items-center gap-1 text-muted-foreground">
             <Users className="h-4 w-4" />
-            {competition._count.competitors} competitors
+            {competition._count.competitors} teams
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
             <LayoutGrid className="h-4 w-4" />

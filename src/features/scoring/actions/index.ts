@@ -3,9 +3,11 @@
 import { prisma } from "@/shared/lib/prisma";
 import { requireAuth, requireCaptain } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
+import { markCategoryRoundSubmittedIfReady } from "@features/competition";
 import type {
   TableScoringStatus,
   ScoreCardWithJudge,
+  CommentCardWithJudge,
   CorrectionRequestWithDetails,
 } from "../types";
 
@@ -42,26 +44,30 @@ export async function getTableScoringStatus(
     orderBy: { seatNumber: "asc" },
   });
 
-  // For each judge, count submitted scorecards
-  const judges = await Promise.all(
-    assignments.map(async (a) => {
-      const submittedCount = await prisma.scoreCard.count({
-        where: {
-          submissionId: { in: submissionIds },
-          judgeId: a.userId,
-          locked: true,
-        },
-      });
+  // Count submitted scorecards per judge in a single query
+  const scoreCardCounts = await prisma.scoreCard.groupBy({
+    by: ["judgeId"],
+    where: {
+      submissionId: { in: submissionIds },
+      locked: true,
+    },
+    _count: { id: true },
+  });
 
-      return {
-        judge: a.user,
-        seatNumber: a.seatNumber,
-        submittedCount,
-        totalCount: submissions.length,
-        allSubmitted: submittedCount >= submissions.length,
-      };
-    })
+  const countByJudge = new Map(
+    scoreCardCounts.map((c) => [c.judgeId, c._count.id])
   );
+
+  const judges = assignments.map((a) => {
+    const submittedCount = countByJudge.get(a.userId) ?? 0;
+    return {
+      judge: a.user,
+      seatNumber: a.seatNumber,
+      submittedCount,
+      totalCount: submissions.length,
+      allSubmitted: submittedCount >= submissions.length,
+    };
+  });
 
   const totalScoreCards = assignments.length * submissions.length;
   const submittedScoreCards = judges.reduce(
@@ -87,7 +93,7 @@ export async function getTableScoreCards(
   tableId: string,
   categoryRoundId: string
 ): Promise<ScoreCardWithJudge[]> {
-  await requireAuth();
+  await requireCaptain();
   const scoreCards = await prisma.scoreCard.findMany({
     where: {
       submission: { tableId, categoryRoundId },
@@ -110,6 +116,7 @@ export async function getTableScoreCards(
     ],
   });
 
+  // TODO: replace with Prisma.GetPayload to tie type to query shape
   return scoreCards as ScoreCardWithJudge[];
 }
 
@@ -144,6 +151,7 @@ export async function getPendingCorrectionRequests(
     orderBy: { id: "desc" },
   });
 
+  // TODO: replace with Prisma.GetPayload to tie type to query shape
   return requests as CorrectionRequestWithDetails[];
 }
 
@@ -156,8 +164,17 @@ export async function approveCorrectionRequest(
 
   const request = await prisma.correctionRequest.findUniqueOrThrow({
     where: { id: requestId },
-    include: { scoreCard: true },
+    include: { scoreCard: { include: { submission: { select: { tableId: true } } } } },
   });
+
+  // Verify captain owns this table
+  const captainTable = await prisma.table.findFirst({
+    where: { id: request.scoreCard.submission.tableId, captainId },
+    select: { id: true },
+  });
+  if (!captainTable) {
+    throw new Error("You can only manage correction requests for your own table");
+  }
 
   if (request.status !== "PENDING") {
     throw new Error("This correction request has already been resolved");
@@ -193,7 +210,17 @@ export async function denyCorrectionRequest(
 
   const request = await prisma.correctionRequest.findUniqueOrThrow({
     where: { id: requestId },
+    include: { scoreCard: { include: { submission: { select: { tableId: true } } } } },
   });
+
+  // Verify captain owns this table
+  const captainTable = await prisma.table.findFirst({
+    where: { id: request.scoreCard.submission.tableId, captainId },
+    select: { id: true },
+  });
+  if (!captainTable) {
+    throw new Error("You can only manage correction requests for your own table");
+  }
 
   if (request.status !== "PENDING") {
     throw new Error("This correction request has already been resolved");
@@ -210,6 +237,39 @@ export async function denyCorrectionRequest(
 
   revalidatePath("/captain");
   return correction;
+}
+
+// --- Get Table Comment Cards ---
+
+export async function getTableCommentCards(
+  tableId: string,
+  categoryRoundId: string
+): Promise<CommentCardWithJudge[]> {
+  await requireCaptain();
+  const commentCards = await prisma.commentCard.findMany({
+    where: {
+      categoryRoundId,
+      submission: { tableId },
+    },
+    include: {
+      judge: { select: { id: true, name: true, cbjNumber: true } },
+      submission: {
+        select: {
+          id: true,
+          boxNumber: true,
+          boxCode: true,
+          competitor: { select: { id: true, anonymousNumber: true } },
+        },
+      },
+    },
+    orderBy: [
+      { submission: { boxNumber: "asc" } },
+      { judge: { cbjNumber: "asc" } },
+    ],
+  });
+
+  // TODO: replace with Prisma.GetPayload to tie type to query shape
+  return commentCards as CommentCardWithJudge[];
 }
 
 // --- Check if Category Already Submitted by Table ---
@@ -262,22 +322,23 @@ export async function submitCategoryToOrganizer(
     );
   }
 
-  // Get competition ID for audit log
+  // Get table and verify captain ownership
   const table = await prisma.table.findUniqueOrThrow({
     where: { id: tableId },
-    select: { competitionId: true },
+    select: { competitionId: true, captainId: true },
   });
 
-  // Log to audit (entityId includes tableId for per-table lookup)
-  await prisma.auditLog.create({
-    data: {
-      competitionId: table.competitionId,
-      actorId: captainId,
-      action: "SUBMIT_CATEGORY",
-      entityId: `${tableId}:${categoryRoundId}`,
-      entityType: "CategoryRound",
-    },
-  });
+  if (table.captainId !== captainId) {
+    throw new Error("You can only submit for your own table");
+  }
+
+  // Delegate audit log + auto-transition to competition module
+  await markCategoryRoundSubmittedIfReady(
+    table.competitionId,
+    categoryRoundId,
+    tableId,
+    captainId
+  );
 
   revalidatePath("/captain");
   revalidatePath(`/organizer`);

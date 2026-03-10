@@ -23,7 +23,6 @@ export const competitorSchema = z.object({
 
 export const tableAssignmentSchema = z.object({
   cbjNumber: z.string().min(1, "CBJ number is required"),
-  seatNumber: z.coerce.number().int().min(1).max(6),
   isCaptain: z.boolean().default(false),
 });
 

@@ -29,18 +29,21 @@ interface CheckInTabProps {
   competitionId: string;
   judgePin: string | null;
   roster: CompetitionJudgeWithUser[];
+  showTables?: boolean;
 }
 
 export function CheckInTab({
   competitionId,
   judgePin: initialPin,
   roster,
+  showTables = true,
 }: CheckInTabProps) {
   const router = useRouter();
   const [pin, setPin] = useState(initialPin);
   const [isPending, startTransition] = useTransition();
   const [tableInputs, setTableInputs] = useState<Record<string, string>>({});
   const [randomError, setRandomError] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const checkedInCount = roster.filter((r) => r.checkedIn).length;
   const assignedCount = roster.filter((r) => r.tableAssignment).length;
@@ -62,45 +65,60 @@ export function CheckInTab({
     .sort((a, b) => a.tableNumber - b.tableNumber);
 
   async function handleGeneratePin() {
-    const newPin = await generateJudgePin(competitionId);
-    setPin(newPin);
-  }
-
-  async function handleCheckIn(registrationId: string) {
-    await checkInJudge(registrationId);
-    startTransition(() => router.refresh());
-  }
-
-  async function handleUncheckIn(registrationId: string) {
-    await uncheckInJudge(registrationId);
-    startTransition(() => router.refresh());
-  }
-
-  async function handleAssignTable(userId: string) {
-    const tableNum = parseInt(tableInputs[userId] || "");
-    if (!tableNum || tableNum < 1) return;
-    await assignJudgeToTableOnly(competitionId, userId, tableNum);
-    setTableInputs((prev) => ({ ...prev, [userId]: "" }));
-    startTransition(() => router.refresh());
-  }
-
-  async function handleRandomAssign() {
-    setRandomError(null);
+    setPinError(null);
     try {
-      await randomAssignTables(competitionId);
-      startTransition(() => router.refresh());
+      const newPin = await generateJudgePin(competitionId);
+      setPin(newPin);
     } catch (err) {
-      setRandomError(
-        err instanceof Error ? err.message : "Failed to assign tables"
+      setPinError(
+        err instanceof Error ? err.message : "Failed to generate PIN"
       );
     }
+  }
+
+  function handleCheckIn(registrationId: string) {
+    startTransition(async () => {
+      await checkInJudge(registrationId);
+      router.refresh();
+    });
+  }
+
+  function handleUncheckIn(registrationId: string) {
+    startTransition(async () => {
+      await uncheckInJudge(registrationId);
+      router.refresh();
+    });
+  }
+
+  function handleAssignTable(userId: string) {
+    const tableNum = parseInt(tableInputs[userId] || "");
+    if (!tableNum || tableNum < 1) return;
+    startTransition(async () => {
+      await assignJudgeToTableOnly(competitionId, userId, tableNum);
+      setTableInputs((prev) => ({ ...prev, [userId]: "" }));
+      router.refresh();
+    });
+  }
+
+  function handleRandomAssign() {
+    setRandomError(null);
+    startTransition(async () => {
+      try {
+        await randomAssignTables(competitionId);
+        router.refresh();
+      } catch (err) {
+        setRandomError(
+          err instanceof Error ? err.message : "Failed to assign tables"
+        );
+      }
+    });
   }
 
   const columns = [
     {
       header: "CBJ #",
       cell: (row: CompetitionJudgeWithUser) => (
-        <span className="font-mono font-medium">CBJ-{row.user.cbjNumber}</span>
+        <span className="font-mono font-medium">{row.user.cbjNumber}</span>
       ),
     },
     {
@@ -205,6 +223,9 @@ export function CheckInTab({
               {pin ? "Regenerate" : "Generate PIN"}
             </Button>
           </div>
+          {pinError && (
+            <p className="mt-2 text-sm text-destructive">{pinError}</p>
+          )}
         </SectionCard.Body>
       </SectionCard.Root>
 
@@ -264,6 +285,10 @@ export function CheckInTab({
             columns={columns}
             data={roster}
             loading={isPending}
+            searchFn={(item, q) =>
+              item.user.cbjNumber.toLowerCase().includes(q) ||
+              item.user.name.toLowerCase().includes(q)
+            }
             emptyState={
               <p className="py-8 text-center text-sm text-muted-foreground">
                 No judges registered. Add judges on the Roster tab first.
@@ -274,7 +299,7 @@ export function CheckInTab({
       </SectionCard.Root>
 
       {/* Table Composition */}
-      {tableEntries.length > 0 && (
+      {showTables && tableEntries.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Tables</h3>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -286,7 +311,7 @@ export function CheckInTab({
                     <Badge
                       variant={judges.length >= 6 ? "default" : "secondary"}
                     >
-                      {judges.length}/6
+                      {judges.length}/6 Judges
                     </Badge>
                   }
                 />
@@ -298,7 +323,7 @@ export function CheckInTab({
                         className="flex items-center gap-3 py-2"
                       >
                         <span className="font-mono text-sm font-medium w-16">
-                          CBJ-{j.user.cbjNumber}
+                          {j.user.cbjNumber}
                         </span>
                         <span className="text-sm">{j.user.name}</span>
                       </div>

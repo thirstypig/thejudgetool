@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Shield, Clock } from "lucide-react";
 import { PageHeader } from "@/shared/components/common/PageHeader";
 import { LoadingSpinner } from "@/shared/components/common/LoadingSpinner";
@@ -12,15 +12,17 @@ import {
   TableStatusBoard,
   ScoreReviewTable,
   CorrectionRequestPanel,
+  CommentCardReviewTable,
   SubmitCategoryDialog,
   CategorySubmittedScreen,
   getTableScoringStatus,
   getTableScoreCards,
+  getTableCommentCards,
   getPendingCorrectionRequests,
   isCategorySubmittedByTable,
   submitCategoryToOrganizer,
 } from "@features/scoring";
-import type { TableScoringStatus, ScoreCardWithJudge, CorrectionRequestWithDetails } from "@features/scoring";
+import type { TableScoringStatus, ScoreCardWithJudge, CommentCardWithJudge, CorrectionRequestWithDetails } from "@features/scoring";
 import type { JudgeSession } from "@features/judging";
 
 interface Props {
@@ -35,13 +37,14 @@ type CaptainPhase =
   | "ready-to-review"
   | "category-submitted";
 
-type ActiveTab = "status" | "scores";
+type ActiveTab = "status" | "scores" | "comments";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
   const [session, setSession] = useState<JudgeSession | null>(null);
   const [scoringStatus, setScoringStatus] = useState<TableScoringStatus | null>(null);
   const [scoreCards, setScoreCards] = useState<ScoreCardWithJudge[]>([]);
+  const [commentCards, setCommentCards] = useState<CommentCardWithJudge[]>([]);
   const [corrections, setCorrections] = useState<CorrectionRequestWithDetails[]>([]);
   const [categorySubmitted, setCategorySubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +52,8 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("status");
+  const [scoresReviewed, setScoresReviewed] = useState(false);
+  const [commentCardsReviewed, setCommentCardsReviewed] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -56,7 +61,7 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
       setSession(judgeSession);
 
       if (judgeSession?.table && judgeSession.activeCategory) {
-        const [status, cards, reqs, submitted] = await Promise.all([
+        const [status, cards, comments, reqs, submitted] = await Promise.all([
           getTableScoringStatus(
             judgeSession.table.id,
             judgeSession.activeCategory.id
@@ -65,6 +70,12 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
             judgeSession.table.id,
             judgeSession.activeCategory.id
           ),
+          judgeSession.commentCardsEnabled
+            ? getTableCommentCards(
+                judgeSession.table.id,
+                judgeSession.activeCategory.id
+              )
+            : Promise.resolve([]),
           getPendingCorrectionRequests(judgeSession.table.id),
           isCategorySubmittedByTable(
             judgeSession.table.id,
@@ -73,10 +84,12 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
         ]);
         setScoringStatus(status);
         setScoreCards(cards);
+        setCommentCards(comments);
         setCorrections(reqs);
         setCategorySubmitted(submitted);
       } else {
         setCategorySubmitted(false);
+        setCommentCards([]);
       }
     } catch {
       // Ignore polling errors
@@ -95,15 +108,20 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
   }
 
   const phase = loading ? null : getPhase();
-  const phaseRef = useRef(phase);
-  phaseRef.current = phase;
 
   // Poll — faster during judging-in-progress, stable interval via ref
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5_000);
+    const interval = setInterval(loadData, 15_000);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  // Reset review state when active category changes
+  const activeCategoryId = session?.activeCategory?.id;
+  useEffect(() => {
+    setScoresReviewed(false);
+    setCommentCardsReviewed(false);
+  }, [activeCategoryId]);
 
   // Auto-switch to scores tab when ready to review
   useEffect(() => {
@@ -269,6 +287,24 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
             </Badge>
           )}
         </button>
+        {session?.commentCardsEnabled && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("comments")}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === "comments"
+                ? "bg-background shadow-sm"
+                : "text-muted-foreground"
+            }`}
+          >
+            Comments
+            {commentCards.length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 text-xs">
+                {commentCards.length}
+              </Badge>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Desktop: side-by-side / Mobile: tabbed */}
@@ -280,6 +316,9 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
               status={scoringStatus}
               onSubmit={() => setSubmitDialogOpen(true)}
               isSubmitting={isSubmitting}
+              scoresReviewed={scoresReviewed}
+              commentCardsReviewed={commentCardsReviewed}
+              commentCardsEnabled={session?.commentCardsEnabled ?? false}
             >
               <TableStatusBoard.Header />
               <TableStatusBoard.JudgeGrid>
@@ -292,14 +331,35 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
           )}
         </div>
 
-        {/* Right panel — Score Review Table */}
-        <div className={activeTab !== "scores" ? "hidden md:block" : ""}>
-          <SectionCard.Root>
-            <SectionCard.Header title="Score Cards" />
-            <SectionCard.Body className="p-0">
-              <ScoreReviewTable scoreCards={scoreCards} />
-            </SectionCard.Body>
-          </SectionCard.Root>
+        {/* Right panel — Score Review + Comment Card Review */}
+        <div className={activeTab !== "scores" && activeTab !== "comments" ? "hidden md:block" : ""}>
+          <div className={activeTab === "comments" ? "hidden md:block" : ""}>
+            <SectionCard.Root>
+              <SectionCard.Header title="Score Cards" />
+              <SectionCard.Body className="p-0">
+                <ScoreReviewTable
+                  scoreCards={scoreCards}
+                  reviewed={scoresReviewed}
+                  onMarkReviewed={() => setScoresReviewed(true)}
+                />
+              </SectionCard.Body>
+            </SectionCard.Root>
+          </div>
+
+          {session?.commentCardsEnabled && (
+            <div className={`mt-4 ${activeTab === "scores" ? "hidden md:block" : ""}`}>
+              <SectionCard.Root>
+                <SectionCard.Header title="Comment Cards" />
+                <SectionCard.Body className="p-0">
+                  <CommentCardReviewTable
+                    commentCards={commentCards}
+                    reviewed={commentCardsReviewed}
+                    onMarkReviewed={() => setCommentCardsReviewed(true)}
+                  />
+                </SectionCard.Body>
+              </SectionCard.Root>
+            </div>
+          )}
         </div>
       </div>
 

@@ -39,7 +39,7 @@ export function JudgeImportForm({ onImported }: JudgeImportFormProps) {
     setSingleResult(null);
     try {
       const user = await importSingleJudge(data);
-      setSingleResult(`Added ${user.name} (CBJ-${user.cbjNumber})`);
+      setSingleResult(`Added ${user.name} (${user.cbjNumber})`);
       onImported?.([user.id]);
       reset();
     } catch (err) {
@@ -80,7 +80,7 @@ export function JudgeImportForm({ onImported }: JudgeImportFormProps) {
             <div className="space-y-1">
               <Label>CBJ #</Label>
               <Input
-                placeholder="001"
+                placeholder="100001"
                 className="w-28 font-mono"
                 {...register("cbjNumber")}
               />
@@ -116,7 +116,7 @@ export function JudgeImportForm({ onImported }: JudgeImportFormProps) {
             <textarea
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"001, Marcus Johnson\n002, Lisa Chen\n003, David Williams"}
+              placeholder={"100001, Marcus Johnson\n100002, Lisa Chen\n100003, David Williams"}
               rows={6}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />

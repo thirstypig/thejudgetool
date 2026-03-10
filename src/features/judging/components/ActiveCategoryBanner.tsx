@@ -26,7 +26,7 @@ export function ActiveCategoryBanner({
   return (
     <div
       className={cn(
-        "sticky top-0 z-40 flex items-center gap-4 rounded-lg border bg-card px-4 py-3 shadow-sm",
+        "flex items-center gap-4 rounded-lg border bg-card px-4 py-3 shadow-sm",
         allDone && "border-green-500/50 bg-green-50 dark:bg-green-950/20",
         className
       )}

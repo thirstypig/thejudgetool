@@ -1,42 +1,38 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/shared/lib/auth";
 import type { Session } from "next-auth";
 import { PageHeader } from "@/shared/components/common/PageHeader";
 import {
   getCompetitionById,
-  getCompetitionRoster,
-  RosterTab,
+  BoxDistributionPanel,
 } from "@features/competition";
 
 export const metadata: Metadata = {
-  title: "Judge Registration | BBQ Judge",
+  title: "Box Distribution | BBQ Judge",
 };
 
-export default async function JudgeRegistrationPage({
+export default async function BoxDistributionPage({
   params,
 }: {
   params: { competitionId: string };
 }) {
   const session = (await auth()) as Session | null;
   const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || role !== "ORGANIZER") {
-    redirect("/login");
-  }
+  if (!session?.user || role !== "ORGANIZER") redirect("/login");
 
   const competition = await getCompetitionById(params.competitionId);
-  if (!competition) {
-    redirect("/organizer");
-  }
-
-  const roster = await getCompetitionRoster(params.competitionId);
+  if (!competition) notFound();
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Judge Registration" />
-      <RosterTab
-        competitionId={params.competitionId}
-        roster={roster}
+      <PageHeader title="Box Distribution" />
+      <BoxDistributionPanel
+        competitionId={competition.id}
+        distributionStatus={competition.distributionStatus}
+        tableCount={competition.tables.length}
+        competitorCount={competition.competitors.length}
+        competitionName={competition.name}
       />
     </div>
   );

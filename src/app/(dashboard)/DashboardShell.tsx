@@ -8,7 +8,6 @@ import {
   Flame,
   LayoutDashboard,
   Trophy,
-  Settings,
   BarChart3,
   Users,
   ClipboardList,
@@ -19,6 +18,11 @@ import {
   LogOut,
   Menu,
   ChevronDown,
+  Package,
+  UserCheck,
+  UserPlus,
+  Table2,
+  Beef,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -42,11 +46,18 @@ import { useCompetition, getCompetitions } from "@features/competition";
 import { cn } from "@/shared/lib/utils";
 import type { UserRole } from "@/shared/constants/kcbs";
 
+interface NavChild {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+}
+
 interface NavItem {
   label: string;
   href: string;
   icon: typeof LayoutDashboard;
   roles: string[];
+  children?: NavChild[];
 }
 
 const navItems: NavItem[] = [
@@ -58,15 +69,31 @@ const navItems: NavItem[] = [
     roles: ["ORGANIZER"],
   },
   {
-    label: "Competitors",
-    href: "/organizer/setup",
-    icon: Settings,
+    label: "BBQ Teams",
+    href: "/organizer/teams",
+    icon: Beef,
     roles: ["ORGANIZER"],
+    children: [
+      { label: "Registration", href: "/organizer/teams", icon: UserPlus },
+      { label: "Check-In", href: "/organizer/teams/checkin", icon: UserCheck },
+      { label: "Boxes", href: "/organizer/teams/boxes", icon: Package },
+    ],
   },
   {
     label: "Judges",
     href: "/organizer/judges",
     icon: Users,
+    roles: ["ORGANIZER"],
+    children: [
+      { label: "Registration", href: "/organizer/judges", icon: UserPlus },
+      { label: "Check-In", href: "/organizer/judges/checkin", icon: UserCheck },
+      { label: "Tables", href: "/organizer/judges/tables", icon: Table2 },
+    ],
+  },
+  {
+    label: "Competition",
+    href: "/organizer/competition",
+    icon: Flame,
     roles: ["ORGANIZER"],
   },
   {
@@ -146,55 +173,86 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     }
   }, [user.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Resolve competition-specific nav hrefs
-  function resolveHref(item: NavItem): string {
-    if (
-      user.role === "ORGANIZER" &&
-      activeCompetition &&
-      (item.label === "Competitors" ||
-        item.label === "Results" ||
-        item.label === "Judges")
-    ) {
-      const suffix =
-        item.label === "Competitors"
-          ? "setup"
-          : item.label === "Judges"
-            ? "judges"
-            : "results";
-      return `/organizer/${activeCompetition.id}/${suffix}`;
+  // Inject competition ID into organizer paths
+  function resolveHref(href: string): string {
+    if (user.role === "ORGANIZER" && activeCompetition) {
+      // Replace /organizer/teams, /organizer/judges, etc. with /organizer/[id]/...
+      const match = href.match(/^\/organizer\/(teams|judges|competition|results)(\/.*)?$/);
+      if (match) {
+        return `/organizer/${activeCompetition.id}/${match[1]}${match[2] || ""}`;
+      }
     }
-    return item.href;
+    return href;
   }
 
-  function isActive(item: NavItem): boolean {
-    const href = resolveHref(item);
-    if (href === pathname) return true;
-    // Match competition sub-routes
-    if (
-      item.label === "Competitors" &&
-      pathname.includes("/setup")
-    )
-      return true;
-    if (item.label === "Results" && pathname.includes("/results")) return true;
-    if (item.label === "Judges" && pathname.includes("/judges")) return true;
-    return false;
+  function isChildActive(href: string): boolean {
+    return pathname === resolveHref(href);
   }
 
-  const displayNav = filteredNav;
+  function isSectionActive(item: NavItem): boolean {
+    if (!item.children) {
+      return pathname === resolveHref(item.href);
+    }
+    return item.children.some((child) => isChildActive(child.href));
+  }
+
+  const needsCompetition = (item: NavItem) =>
+    !activeCompetition &&
+    user.role === "ORGANIZER" &&
+    /^\/(organizer)\/(teams|judges|competition|results)/.test(item.href);
 
   const sidebarContent = (
     <nav className="flex flex-col gap-1 p-3">
-      {displayNav.map((item) => {
-        const href = resolveHref(item);
-        const active = isActive(item);
+      {filteredNav.map((item) => {
+        const disabled = needsCompetition(item);
         const Icon = item.icon;
-        const disabled =
-          !activeCompetition &&
-          user.role === "ORGANIZER" &&
-          (item.label === "Competitors" ||
-            item.label === "Results" ||
-            item.label === "Judges");
 
+        if (item.children) {
+          // Section header (not a link) + indented children
+          const sectionActive = isSectionActive(item);
+          return (
+            <div key={item.label}>
+              <div
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider",
+                  sectionActive
+                    ? "text-primary"
+                    : "text-muted-foreground",
+                  disabled && "opacity-40"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </div>
+              {item.children.map((child) => {
+                const childHref = resolveHref(child.href);
+                const childActive = isChildActive(child.href);
+                const ChildIcon = child.icon;
+                return (
+                  <Link
+                    key={child.href}
+                    href={disabled ? "#" : childHref}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md py-1.5 pl-9 pr-3 text-sm font-medium transition-colors",
+                      childActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      disabled && "pointer-events-none opacity-40"
+                    )}
+                  >
+                    <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                    {child.label}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        }
+
+        // Regular nav item (no children)
+        const href = resolveHref(item.href);
+        const active = isSectionActive(item);
         return (
           <Link
             key={item.label}
@@ -270,9 +328,16 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     <div className="flex min-h-screen">
       {/* Desktop Sidebar */}
       <aside className="hidden w-60 shrink-0 border-r bg-card md:block">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <Flame className="h-5 w-5 text-primary" />
-          <span className="font-bold">BBQ Judge</span>
+        <div className="border-b px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Flame className="h-5 w-5 text-primary" />
+            <span className="font-bold">BBQ Judge</span>
+          </div>
+          {user.role === "ORGANIZER" && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              KCBS Competition Manager
+            </p>
+          )}
         </div>
         {sidebarContent}
       </aside>

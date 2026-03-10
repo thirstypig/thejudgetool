@@ -15,14 +15,16 @@ import { ScoreDisplay } from "@/shared/components/common/ScoreDisplay";
 import { StatusBadge } from "@/shared/components/common/StatusBadge";
 import { EmptyState } from "@/shared/components/common/EmptyState";
 import { cn } from "@/shared/lib/utils";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, CheckCircle2 } from "lucide-react";
 import type { ScoreCardWithJudge } from "../types";
 
 interface ScoreReviewTableProps {
   scoreCards: ScoreCardWithJudge[];
+  reviewed?: boolean;
+  onMarkReviewed?: () => void;
 }
 
-export function ScoreReviewTable({ scoreCards }: ScoreReviewTableProps) {
+export function ScoreReviewTable({ scoreCards, reviewed, onMarkReviewed }: ScoreReviewTableProps) {
   const [sortByTotal, setSortByTotal] = useState(false);
 
   if (scoreCards.length === 0) {
@@ -46,6 +48,7 @@ export function ScoreReviewTable({ scoreCards }: ScoreReviewTableProps) {
     : rows;
 
   return (
+    <>
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
@@ -124,5 +127,26 @@ export function ScoreReviewTable({ scoreCards }: ScoreReviewTableProps) {
         </TableBody>
       </Table>
     </div>
+    {onMarkReviewed && (
+      <div className="border-t px-4 py-3">
+        {reviewed ? (
+          <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+            <CheckCircle2 className="h-4 w-4" />
+            Scores Reviewed
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onMarkReviewed}
+            className="w-full"
+          >
+            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+            I have reviewed all score cards
+          </Button>
+        )}
+      </div>
+    )}
+    </>
   );
 }

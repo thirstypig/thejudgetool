@@ -43,8 +43,14 @@ export type CategoryDistribution = {
 
 export type BoxDistribution = CategoryDistribution[];
 
+/** Generate a pool of unique sequential 3-digit+ box numbers starting at 100. */
+function generateUniqueBoxNumbers(count: number): number[] {
+  return Array.from({ length: count }, (_, i) => 100 + i);
+}
+
 /**
  * Validates that no competitor appears at the same table across multiple categories.
+ * Also validates that all box numbers are unique across the entire distribution.
  */
 export function validateDistribution(distribution: BoxDistribution): {
   valid: boolean;
@@ -85,6 +91,23 @@ export function validateDistribution(distribution: BoxDistribution): {
       }
     });
   });
+
+  // Validate box number uniqueness
+  const seenBoxNumbers = new Set<number>();
+  for (const cat of distribution) {
+    for (const table of cat.tables) {
+      for (const comp of table.competitors) {
+        if (seenBoxNumbers.has(comp.boxNumber)) {
+          violations.push({
+            competitorId: comp.competitorId,
+            tableId: table.tableId,
+            categories: [cat.categoryName],
+          });
+        }
+        seenBoxNumbers.add(comp.boxNumber);
+      }
+    }
+  }
 
   return { valid: violations.length === 0, violations };
 }
@@ -152,6 +175,9 @@ function generateCyclicDistribution(
   const totalSlots = tables.length * slotsPerTable;
   // Use only as many competitors as we have table slots
   const pool = competitors.slice(0, totalSlots);
+  const totalBoxes = categories.length * totalSlots;
+  const boxNumbers = generateUniqueBoxNumbers(totalBoxes);
+  let boxIdx = 0;
 
   return categories.map((cat, catIdx) => {
     const shift = catIdx * slotsPerTable;
@@ -165,10 +191,10 @@ function generateCyclicDistribution(
       return {
         tableId: table.id,
         tableNumber: table.tableNumber,
-        competitors: assigned.map((comp, i) => ({
+        competitors: assigned.map((comp) => ({
           competitorId: comp.id,
           anonymousNumber: comp.anonymousNumber,
-          boxNumber: i + 1,
+          boxNumber: boxNumbers[boxIdx++],
         })),
       };
     });
@@ -187,6 +213,11 @@ function generateGreedyDistribution(
   categories: CategoryRoundInput[],
   slotsPerTable: number
 ): BoxDistribution {
+  // Pre-generate all box numbers
+  const maxBoxes = categories.length * tables.length * slotsPerTable;
+  const boxNumbers = generateUniqueBoxNumbers(maxBoxes);
+  let boxIdx = 0;
+
   // Track which competitors have been at which tables
   const tableHistory = new Map<string, Set<string>>(); // tableId -> Set<competitorId>
   for (const t of tables) {
@@ -231,10 +262,10 @@ function generateGreedyDistribution(
       tableDistributions.push({
         tableId: table.id,
         tableNumber: table.tableNumber,
-        competitors: assigned.map((comp, i) => ({
+        competitors: assigned.map((comp) => ({
           competitorId: comp.id,
           anonymousNumber: comp.anonymousNumber,
-          boxNumber: i + 1,
+          boxNumber: boxNumbers[boxIdx++],
         })),
       });
     }

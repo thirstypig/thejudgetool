@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { BarChart3, Trophy, ScrollText } from "lucide-react";
+import { BarChart3, Trophy, ScrollText, FileSearch, Play } from "lucide-react";
 import { PageHeader } from "@/shared/components/common/PageHeader";
 import { LoadingSpinner } from "@/shared/components/common/LoadingSpinner";
+import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
   CompetitionProgressDashboard,
@@ -12,19 +13,25 @@ import {
   WinnerDeclarationPanel,
   ExportResultsButton,
   AuditLogViewer,
+  ScoreAuditView,
   getCompetitionProgress,
   getAllCategoryResults,
   getAuditLog,
 } from "@features/tabulation";
-import { getCompetitionById } from "@features/competition";
+import {
+  getCompetitionById,
+  CompetitionStatusStepper,
+  advanceCategoryRound,
+} from "@features/competition";
 import type { CompetitionProgress, AllCategoryResults, AuditLogEntry } from "@features/tabulation";
 import type { CompetitionWithRelations } from "@features/competition";
 
-type Tab = "progress" | "results" | "audit";
+type Tab = "progress" | "results" | "score-audit" | "audit";
 
 const TABS: { key: Tab; label: string; icon: typeof BarChart3 }[] = [
   { key: "progress", label: "Live Progress", icon: BarChart3 },
   { key: "results", label: "Results", icon: Trophy },
+  { key: "score-audit", label: "Score Audit", icon: FileSearch },
   { key: "audit", label: "Audit Log", icon: ScrollText },
 ];
 
@@ -37,29 +44,46 @@ export default function ResultsPage() {
   const [progress, setProgress] = useState<CompetitionProgress | null>(null);
   const [results, setResults] = useState<AllCategoryResults>({});
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [comp, prog, res, logs] = await Promise.all([
-        getCompetitionById(params.competitionId),
-        getCompetitionProgress(params.competitionId),
-        getAllCategoryResults(params.competitionId),
-        getAuditLog(params.competitionId),
-      ]);
+      // Always fetch competition; only fetch data for active tab
+      const comp = await getCompetitionById(params.competitionId);
       setCompetition(comp);
-      setProgress(prog);
-      setResults(res);
-      setAuditLogs(logs);
+
+      if (activeTab === "progress") {
+        setProgress(await getCompetitionProgress(params.competitionId));
+      } else if (activeTab === "results") {
+        setResults(await getAllCategoryResults(params.competitionId));
+      } else if (activeTab === "audit") {
+        setAuditLogs(await getAuditLog(params.competitionId));
+      }
+      // score-audit tab loads on demand via ScoreAuditView
     } finally {
       setLoading(false);
     }
-  }, [params.competitionId]);
+  }, [params.competitionId, activeTab]);
 
   useEffect(() => {
     load();
     const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
   }, [load]);
+
+  async function handleAdvance() {
+    try {
+      setAdvancing(true);
+      setAdvanceError(null);
+      await advanceCategoryRound(params.competitionId);
+      await load();
+    } catch (err) {
+      setAdvanceError(err instanceof Error ? err.message : "Failed to advance round");
+    } finally {
+      setAdvancing(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -73,17 +97,37 @@ export default function ResultsPage() {
     return <p className="text-destructive">Competition not found.</p>;
   }
 
+  const canAdvance =
+    competition.status !== "CLOSED" &&
+    !competition.categoryRounds.some((r) => r.status === "ACTIVE");
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={competition.name}
         subtitle="Results & Tabulation"
         actions={
-          activeTab === "results" && (
-            <ExportResultsButton competitionId={params.competitionId} />
-          )
+          <div className="flex items-center gap-2">
+            {canAdvance && (
+              <Button onClick={handleAdvance} disabled={advancing}>
+                <Play className="mr-1 h-4 w-4" />
+                {advancing ? "Advancing..." : "Start Next Round"}
+              </Button>
+            )}
+            {activeTab === "results" && (
+              <ExportResultsButton competitionId={params.competitionId} />
+            )}
+          </div>
         }
       />
+
+      {/* Category stepper */}
+      <CompetitionStatusStepper
+        status={competition.status}
+        categoryRounds={competition.categoryRounds}
+      />
+
+      {advanceError && <p className="text-sm text-destructive">{advanceError}</p>}
 
       {/* Tab bar */}
       <div className="flex gap-1 rounded-lg bg-muted p-1">
@@ -127,6 +171,13 @@ export default function ResultsPage() {
             );
           })}
         </div>
+      )}
+
+      {activeTab === "score-audit" && competition && (
+        <ScoreAuditView
+          competitionId={params.competitionId}
+          categoryRounds={competition.categoryRounds}
+        />
       )}
 
       {activeTab === "audit" && <AuditLogViewer logs={auditLogs} />}

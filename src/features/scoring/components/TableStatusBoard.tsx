@@ -16,7 +16,17 @@ const TableStatusContext = React.createContext<{
   status: TableScoringStatus | null;
   onSubmit: () => void;
   isSubmitting: boolean;
-}>({ status: null, onSubmit: () => {}, isSubmitting: false });
+  scoresReviewed: boolean;
+  commentCardsReviewed: boolean;
+  commentCardsEnabled: boolean;
+}>({
+  status: null,
+  onSubmit: () => {},
+  isSubmitting: false,
+  scoresReviewed: false,
+  commentCardsReviewed: false,
+  commentCardsEnabled: false,
+});
 
 // --- Root ---
 
@@ -24,15 +34,30 @@ function Root({
   status,
   onSubmit,
   isSubmitting,
+  scoresReviewed = false,
+  commentCardsReviewed = false,
+  commentCardsEnabled = false,
   children,
 }: {
   status: TableScoringStatus;
   onSubmit: () => void;
   isSubmitting: boolean;
+  scoresReviewed?: boolean;
+  commentCardsReviewed?: boolean;
+  commentCardsEnabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <TableStatusContext.Provider value={{ status, onSubmit, isSubmitting }}>
+    <TableStatusContext.Provider
+      value={{
+        status,
+        onSubmit,
+        isSubmitting,
+        scoresReviewed,
+        commentCardsReviewed,
+        commentCardsEnabled,
+      }}
+    >
       <SectionCard.Root>{children}</SectionCard.Root>
     </TableStatusContext.Provider>
   );
@@ -120,19 +145,39 @@ function JudgeRow({ judge }: { judge: JudgeScoringStatus }) {
 // --- Submit Gate ---
 
 function SubmitGate() {
-  const { status, onSubmit, isSubmitting } =
-    React.useContext(TableStatusContext);
+  const {
+    status,
+    onSubmit,
+    isSubmitting,
+    scoresReviewed,
+    commentCardsReviewed,
+    commentCardsEnabled,
+  } = React.useContext(TableStatusContext);
   if (!status) return null;
 
   const blocking = status.judges.filter((j) => !j.allSubmitted);
 
+  // Build list of blocking reasons
+  const blockReasons: string[] = [];
+  if (blocking.length > 0) {
+    blockReasons.push(`Waiting on ${blocking.length} judge${blocking.length > 1 ? "s" : ""}`);
+  }
+  if (!scoresReviewed) {
+    blockReasons.push("Score cards not yet reviewed");
+  }
+  if (commentCardsEnabled && !commentCardsReviewed) {
+    blockReasons.push("Comment cards not yet reviewed");
+  }
+
+  const canSubmit = blockReasons.length === 0;
+
   return (
     <SectionCard.Footer>
-      {blocking.length > 0 ? (
+      {!canSubmit ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
-            Waiting on {blocking.length} judge{blocking.length > 1 ? "s" : ""}
+            Cannot submit yet
           </div>
           <ul className="space-y-1 text-xs text-muted-foreground">
             {blocking.map((j) => (
@@ -141,13 +186,25 @@ function SubmitGate() {
                 {j.judge.name} — {j.submittedCount}/{j.totalCount} submitted
               </li>
             ))}
+            {!scoresReviewed && (
+              <li className="flex items-center gap-1">
+                <ShieldAlert className="h-3 w-3 text-amber-500" />
+                Score cards not yet reviewed
+              </li>
+            )}
+            {commentCardsEnabled && !commentCardsReviewed && (
+              <li className="flex items-center gap-1">
+                <ShieldAlert className="h-3 w-3 text-amber-500" />
+                Comment cards not yet reviewed
+              </li>
+            )}
           </ul>
         </div>
       ) : (
         <div className="flex items-center gap-3">
           <Check className="h-5 w-5 text-green-500" />
           <span className="flex-1 text-sm font-medium text-green-700 dark:text-green-400">
-            All judges have submitted
+            All reviews complete — ready to submit
           </span>
           <Button onClick={onSubmit} disabled={isSubmitting}>
             <Send className="mr-1 h-4 w-4" />

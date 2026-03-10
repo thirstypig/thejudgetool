@@ -8,12 +8,41 @@ import {
   CATEGORY_STATUS,
   COMPETITION_STATUS,
 } from "@/shared/constants/kcbs";
+import { z } from "zod";
 import { competitionSchema, competitorSchema } from "../schemas";
 import type { CompetitionWithRelations, CompetitionJudgeWithUser } from "../types";
 import {
   generateBoxDistribution,
   validateDistribution,
 } from "../utils/generateBoxDistribution";
+
+// --- Shared Helpers ---
+
+type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/** Guard + cascade-delete all submissions and their children for a competition. */
+async function guardAndCascadeDeleteSubmissions(tx: TxClient, competitionId: string) {
+  const hasLockedScores = await tx.scoreCard.findFirst({
+    where: { submission: { categoryRound: { competitionId } }, locked: true },
+    select: { id: true },
+  });
+  if (hasLockedScores) {
+    throw new Error("Cannot modify distribution after scoring has begun");
+  }
+
+  await tx.commentCard.deleteMany({
+    where: { submission: { categoryRound: { competitionId } } },
+  });
+  await tx.correctionRequest.deleteMany({
+    where: { scoreCard: { submission: { categoryRound: { competitionId } } } },
+  });
+  await tx.scoreCard.deleteMany({
+    where: { submission: { categoryRound: { competitionId } } },
+  });
+  await tx.submission.deleteMany({
+    where: { categoryRound: { competitionId } },
+  });
+}
 
 // --- Create Competition ---
 
@@ -95,6 +124,7 @@ export async function getCompetitionById(
     },
   });
 
+  // TODO: replace with Prisma.GetPayload to tie type to query shape
   return competition as CompetitionWithRelations | null;
 }
 
@@ -131,8 +161,41 @@ export async function addCompetitor(
     },
   });
 
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
   return competitor;
+}
+
+// --- Add Competitors Bulk (CSV import) ---
+
+const bulkCompetitorSchema = z.array(competitorSchema).min(1).max(200);
+
+export async function addCompetitorsBulk(
+  competitionId: string,
+  teams: { anonymousNumber: string; teamName: string; headCookName?: string; headCookKcbsNumber?: string }[]
+) {
+  await requireOrganizer();
+
+  const parsed = bulkCompetitorSchema.parse(teams);
+
+  const beforeCount = await prisma.competitor.count({ where: { competitionId } });
+
+  await prisma.competitor.createMany({
+    data: parsed.map((t) => ({
+      competitionId,
+      teamName: t.teamName,
+      anonymousNumber: t.anonymousNumber,
+      headCookName: t.headCookName || null,
+      headCookKcbsNumber: t.headCookKcbsNumber || null,
+    })),
+    skipDuplicates: true,
+  });
+
+  const afterCount = await prisma.competitor.count({ where: { competitionId } });
+  const added = afterCount - beforeCount;
+  const skipped = parsed.length - added;
+
+  revalidatePath(`/organizer/${competitionId}/teams`);
+  return { added, skipped };
 }
 
 // --- Assign Judge to Table ---
@@ -193,7 +256,7 @@ export async function assignJudgeToTable(
     });
   }
 
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
   return assignment;
 }
 
@@ -256,21 +319,21 @@ export async function registerJudgesBulkForCompetition(
 ) {
   await requireOrganizer();
 
-  let registered = 0;
-  for (const userId of userIds) {
-    const existing = await prisma.competitionJudge.findUnique({
-      where: { competitionId_userId: { competitionId, userId } },
-    });
-    if (!existing) {
-      await prisma.competitionJudge.create({
-        data: { competitionId, userId },
-      });
-      registered++;
-    }
+  if (userIds.length > 100) {
+    throw new Error("Cannot register more than 100 judges at once");
   }
 
+  const beforeCount = await prisma.competitionJudge.count({ where: { competitionId } });
+
+  await prisma.competitionJudge.createMany({
+    data: userIds.map((userId) => ({ competitionId, userId })),
+    skipDuplicates: true,
+  });
+
+  const afterCount = await prisma.competitionJudge.count({ where: { competitionId } });
+
   revalidatePath(`/organizer/${competitionId}/judges`);
-  return { registered };
+  return { registered: afterCount - beforeCount };
 }
 
 // --- Get Competition Roster ---
@@ -384,7 +447,7 @@ export async function assignJudgeToTableOnly(
   }
 
   revalidatePath(`/organizer/${competitionId}/judges`);
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
 }
 
 // --- Advance Category Round (BR-1) ---
@@ -399,8 +462,27 @@ export async function advanceCategoryRound(competitionId: string) {
 
   const activeRound = rounds.find((r) => r.status === CATEGORY_STATUS.ACTIVE);
   if (activeRound) {
+    // Count how many tables have/haven't submitted
+    const allTables = await prisma.table.findMany({
+      where: { competitionId },
+      select: { id: true, tableNumber: true },
+    });
+    const submitLogs = await prisma.auditLog.findMany({
+      where: {
+        competitionId,
+        action: "SUBMIT_CATEGORY",
+        entityType: "CategoryRound",
+        entityId: { endsWith: `:${activeRound.id}` },
+      },
+    });
+    const submittedTableIds = new Set(
+      submitLogs.map((log) => log.entityId.split(":")[0])
+    );
+    const pending = allTables.filter((t) => !submittedTableIds.has(t.id));
+    const submitted = allTables.length - pending.length;
+
     throw new Error(
-      `"${activeRound.categoryName}" is still active. Submit it before advancing.`
+      `"${activeRound.categoryName}" is still active. ${submitted}/${allTables.length} tables have submitted. Waiting on table(s): ${pending.map((t) => t.tableNumber).join(", ")}.`
     );
   }
 
@@ -412,7 +494,7 @@ export async function advanceCategoryRound(competitionId: string) {
       where: { id: competitionId },
       data: { status: COMPETITION_STATUS.CLOSED },
     });
-    revalidatePath(`/organizer/${competitionId}/status`);
+    revalidatePath(`/organizer/${competitionId}/competition`);
     return null;
   }
 
@@ -427,7 +509,7 @@ export async function advanceCategoryRound(competitionId: string) {
     }),
   ]);
 
-  revalidatePath(`/organizer/${competitionId}/status`);
+  revalidatePath(`/organizer/${competitionId}/competition`);
   return round;
 }
 
@@ -564,7 +646,7 @@ export async function randomAssignTables(competitionId: string) {
   });
 
   revalidatePath(`/organizer/${competitionId}/judges`);
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
   return { assigned: shuffled.length };
 }
 
@@ -610,7 +692,7 @@ export async function generateDistribution(competitionId: string) {
     data: { distributionStatus: "DRAFT" as const },
   });
 
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
   return distribution;
 }
 
@@ -619,18 +701,7 @@ export async function generateDistribution(competitionId: string) {
 export async function approveDistribution(competitionId: string) {
   await requireOrganizer();
 
-  // Guard: if already approved, check no scores exist
   const competition = await fetchCompetitionForDistribution(competitionId);
-  if (competition.distributionStatus === "APPROVED") {
-    const hasScores = await prisma.scoreCard.findFirst({
-      where: {
-        submission: { categoryRound: { competitionId } },
-      },
-    });
-    if (hasScores) {
-      throw new Error("Cannot regenerate distribution — scoring has already begun");
-    }
-  }
 
   // Regenerate distribution server-side
   const distribution = buildDistribution(competition);
@@ -644,19 +715,7 @@ export async function approveDistribution(competitionId: string) {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Delete existing scoreless submissions for this competition
-    const existingSubmissions = await tx.submission.findMany({
-      where: { categoryRound: { competitionId } },
-      include: { _count: { select: { scoreCards: true } } },
-    });
-    const toDelete = existingSubmissions
-      .filter((s) => s._count.scoreCards === 0)
-      .map((s) => s.id);
-    if (toDelete.length > 0) {
-      await tx.submission.deleteMany({
-        where: { id: { in: toDelete } },
-      });
-    }
+    await guardAndCascadeDeleteSubmissions(tx, competitionId);
 
     // Create all submissions in batch
     const submissionData = distribution.flatMap((cat) =>
@@ -678,7 +737,167 @@ export async function approveDistribution(competitionId: string) {
     });
   });
 
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
+}
+
+// --- Get Existing Distribution (from submissions) ---
+
+export async function getExistingDistribution(competitionId: string) {
+  await requireAuth();
+
+  const submissions = await prisma.submission.findMany({
+    where: { categoryRound: { competitionId } },
+    include: {
+      competitor: { select: { id: true, anonymousNumber: true } },
+      categoryRound: { select: { id: true, categoryName: true, order: true } },
+      table: { select: { id: true, tableNumber: true } },
+    },
+    orderBy: [
+      { categoryRound: { order: "asc" } },
+      { table: { tableNumber: "asc" } },
+      { boxNumber: "asc" },
+    ],
+  });
+
+  if (submissions.length === 0) return null;
+
+  // Group into BoxDistribution shape
+  const catMap = new Map<string, {
+    categoryRoundId: string;
+    categoryName: string;
+    order: number;
+    tableMap: Map<string, {
+      tableId: string;
+      tableNumber: number;
+      competitors: Array<{ competitorId: string; anonymousNumber: string; boxNumber: number }>;
+    }>;
+  }>();
+
+  for (const sub of submissions) {
+    const catKey = sub.categoryRound.id;
+    if (!catMap.has(catKey)) {
+      catMap.set(catKey, {
+        categoryRoundId: sub.categoryRound.id,
+        categoryName: sub.categoryRound.categoryName,
+        order: sub.categoryRound.order,
+        tableMap: new Map(),
+      });
+    }
+    const cat = catMap.get(catKey)!;
+    const tableKey = sub.table.id;
+    if (!cat.tableMap.has(tableKey)) {
+      cat.tableMap.set(tableKey, {
+        tableId: sub.table.id,
+        tableNumber: sub.table.tableNumber,
+        competitors: [],
+      });
+    }
+    cat.tableMap.get(tableKey)!.competitors.push({
+      competitorId: sub.competitor?.id ?? "",
+      anonymousNumber: sub.competitor?.anonymousNumber ?? "",
+      boxNumber: sub.boxNumber,
+    });
+  }
+
+  return Array.from(catMap.values())
+    .sort((a, b) => a.order - b.order)
+    .map((cat) => ({
+      categoryRoundId: cat.categoryRoundId,
+      categoryName: cat.categoryName,
+      tables: Array.from(cat.tableMap.values()).sort((a, b) => a.tableNumber - b.tableNumber),
+    }));
+}
+
+// --- Reset Box Distribution ---
+
+export async function resetDistribution(competitionId: string) {
+  await requireOrganizer();
+
+  await prisma.$transaction(async (tx) => {
+    await guardAndCascadeDeleteSubmissions(tx, competitionId);
+
+    await tx.competition.update({
+      where: { id: competitionId },
+      data: { distributionStatus: null },
+    });
+  });
+
+  revalidatePath(`/organizer/${competitionId}/teams`);
+}
+
+// --- Check In Team ---
+
+export async function checkInTeam(competitorId: string) {
+  await requireOrganizer();
+
+  await prisma.competitor.update({
+    where: { id: competitorId },
+    data: { checkedIn: true, checkedInAt: new Date() },
+  });
+
+  revalidatePath("/organizer");
+}
+
+// --- Uncheck In Team ---
+
+export async function uncheckInTeam(competitorId: string) {
+  await requireOrganizer();
+
+  await prisma.competitor.update({
+    where: { id: competitorId },
+    data: { checkedIn: false, checkedInAt: null },
+  });
+
+  revalidatePath("/organizer");
+}
+
+// --- Mark Category Round Submitted (if all tables done) ---
+
+export async function markCategoryRoundSubmittedIfReady(
+  competitionId: string,
+  categoryRoundId: string,
+  tableId: string,
+  captainId: string
+) {
+  await prisma.$transaction(async (tx) => {
+    // Create audit log inside transaction for atomicity
+    await tx.auditLog.create({
+      data: {
+        competitionId,
+        actorId: captainId,
+        action: "SUBMIT_CATEGORY",
+        entityId: `${tableId}:${categoryRoundId}`,
+        entityType: "CategoryRound",
+      },
+    });
+
+    // Check if all tables have now submitted
+    const allTables = await tx.table.findMany({
+      where: { competitionId },
+      select: { id: true },
+    });
+
+    const submitLogs = await tx.auditLog.findMany({
+      where: {
+        competitionId,
+        action: "SUBMIT_CATEGORY",
+        entityType: "CategoryRound",
+        entityId: { endsWith: `:${categoryRoundId}` },
+      },
+    });
+
+    const submittedTableIds = new Set(
+      submitLogs.map((log) => log.entityId.split(":")[0])
+    );
+    const allSubmitted = allTables.every((t) => submittedTableIds.has(t.id));
+
+    if (allSubmitted) {
+      await tx.categoryRound.updateMany({
+        where: { id: categoryRoundId, status: "ACTIVE" },
+        data: { status: "SUBMITTED" },
+      });
+    }
+  });
 }
 
 // --- Toggle Comment Cards ---
@@ -694,5 +913,5 @@ export async function toggleCommentCards(
     data: { commentCardsEnabled: enabled },
   });
 
-  revalidatePath(`/organizer/${competitionId}/setup`);
+  revalidatePath(`/organizer/${competitionId}/teams`);
 }

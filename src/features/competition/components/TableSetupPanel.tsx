@@ -1,22 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { UserPlus, Crown } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { Badge } from "@/shared/components/ui/badge";
 import { SectionCard } from "@/shared/components/common/SectionCard";
 import { UserAvatar } from "@/shared/components/common/UserAvatar";
-import { SEATS } from "@/shared/constants/kcbs";
-import { tableAssignmentSchema } from "../schemas";
 import { assignJudgeToTable } from "../actions";
 import type { CompetitionWithRelations } from "../types";
-import { cn } from "@/shared/lib/utils";
-
 type TableData = CompetitionWithRelations["tables"][number];
-type AssignmentData = TableData["assignments"][number];
 
 // --- Context ---
 
@@ -54,6 +48,7 @@ function TableCard({
 }) {
   const { tables } = React.useContext(TableSetupContext);
   const table = tables.find((t) => t.tableNumber === tableNumber);
+  const judgeCount = table?.assignments.length ?? 0;
 
   return (
     <SectionCard.Root>
@@ -62,80 +57,65 @@ function TableCard({
         actions={
           table && (
             <span className="text-xs text-muted-foreground">
-              Captain: {table.captain?.name ?? "Unassigned"}{" "}
-              {table.captain ? `(${table.captain.cbjNumber})` : ""}
+              {judgeCount}/6 Judges | Captain:{" "}
+              {table.captain?.name ?? "Unassigned"}
             </span>
           )
         }
       />
       <SectionCard.Body>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {SEATS.map((seat) => {
-            const assignment = table?.assignments.find(
-              (a) => a.seatNumber === seat
-            );
-            return (
-              <JudgeSlot
-                key={seat}
-                seatNumber={seat}
-                assignment={assignment}
-                isCaptain={
-                  assignment
-                    ? table?.captainId === assignment.userId
-                    : false
-                }
-              />
-            );
-          })}
-        </div>
+        {/* Captain */}
+        {table?.captain && (
+          <div className="mb-3 flex items-center gap-2 rounded-md border border-amber-500 bg-amber-50 p-2 dark:bg-amber-950/20">
+            <Crown className="h-4 w-4 text-amber-500 shrink-0" />
+            <UserAvatar
+              cbjNumber={table.captain.cbjNumber}
+              role="TABLE_CAPTAIN"
+              className="h-8 w-8 text-xs"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{table.captain.name}</p>
+              <p className="text-xs text-muted-foreground">{table.captain.cbjNumber} &middot; Captain</p>
+            </div>
+          </div>
+        )}
+
+        {/* Judges list */}
+        {table && table.assignments.length > 0 ? (
+          <div className="divide-y">
+            {table.assignments.map((assignment) => {
+              const isCaptain = table.captainId === assignment.userId;
+              return (
+                <div
+                  key={assignment.userId}
+                  className="flex items-center gap-2 py-2"
+                >
+                  <UserAvatar
+                    cbjNumber={assignment.user.cbjNumber}
+                    role={assignment.user.role as "JUDGE" | "TABLE_CAPTAIN" | "ORGANIZER"}
+                    className="h-7 w-7 text-xs"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{assignment.user.name}</p>
+                  </div>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {assignment.user.cbjNumber}
+                  </span>
+                  {isCaptain && (
+                    <Badge variant="outline" className="text-amber-600 border-amber-500">
+                      <Crown className="mr-1 h-3 w-3" /> Captain
+                    </Badge>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No judges assigned yet.</p>
+        )}
       </SectionCard.Body>
       {children}
     </SectionCard.Root>
-  );
-}
-
-// --- Judge Slot ---
-
-function JudgeSlot({
-  seatNumber,
-  assignment,
-  isCaptain,
-}: {
-  seatNumber: number;
-  assignment?: AssignmentData;
-  isCaptain: boolean;
-}) {
-  if (!assignment) {
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-dashed p-2 text-muted-foreground">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
-          {seatNumber}
-        </div>
-        <span className="text-xs">Empty</span>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-md border p-2",
-        isCaptain && "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
-      )}
-    >
-      <UserAvatar
-        cbjNumber={assignment.user.cbjNumber}
-        role={assignment.user.role as "JUDGE" | "TABLE_CAPTAIN" | "ORGANIZER"}
-        className="h-8 w-8 text-xs"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{assignment.user.name}</p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          {assignment.user.cbjNumber}
-          {isCaptain && <Crown className="h-3 w-3 text-amber-500" />}
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -144,77 +124,58 @@ function JudgeSlot({
 function AssignForm({ tableNumber }: { tableNumber: number }) {
   const { competitionId } = React.useContext(TableSetupContext);
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [cbjNumber, setCbjNumber] = React.useState("");
+  const [isCaptain, setIsCaptain] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  type FormValues = { cbjNumber: string; seatNumber: number; isCaptain: boolean };
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(tableAssignmentSchema) as any,
-    defaultValues: { isCaptain: false },
-  });
-
-  async function onSubmit(data: FormValues) {
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cbjNumber.trim()) return;
+    setIsSubmitting(true);
+    setServerError(null);
     try {
-      setServerError(null);
       await assignJudgeToTable(
         competitionId,
-        data.cbjNumber,
+        cbjNumber.trim(),
         tableNumber,
-        data.seatNumber,
-        data.isCaptain
+        null, // no seat number
+        isCaptain
       );
-      reset();
+      setCbjNumber("");
+      setIsCaptain(false);
     } catch (err) {
       setServerError(
         err instanceof Error ? err.message : "Failed to assign judge"
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   return (
     <SectionCard.Footer>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex items-end gap-3">
+      <form onSubmit={onSubmit} className="flex items-end gap-3">
         <div className="space-y-1">
           <Label>CBJ #</Label>
           <Input
-            placeholder="CBJ-001"
+            placeholder="100001"
             className="w-28 font-mono"
-            {...register("cbjNumber")}
+            value={cbjNumber}
+            onChange={(e) => setCbjNumber(e.target.value)}
           />
-          {errors.cbjNumber && (
-            <p className="text-xs text-destructive">
-              {errors.cbjNumber.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-1">
-          <Label>Seat</Label>
-          <Input
-            type="number"
-            min={1}
-            max={6}
-            className="w-20"
-            {...register("seatNumber")}
-          />
-          {errors.seatNumber && (
-            <p className="text-xs text-destructive">
-              {errors.seatNumber.message}
-            </p>
-          )}
         </div>
         <label className="flex items-center gap-1.5 text-sm">
-          <input type="checkbox" {...register("isCaptain")} />
+          <input
+            type="checkbox"
+            checked={isCaptain}
+            onChange={(e) => setIsCaptain(e.target.checked)}
+          />
           <Crown className="h-3.5 w-3.5 text-amber-500" />
           Captain
         </label>
         <Button type="submit" size="sm" disabled={isSubmitting}>
           <UserPlus className="mr-1 h-4 w-4" />
-          {isSubmitting ? "Assigning..." : "Assign"}
+          {isSubmitting ? "Adding..." : "Add"}
         </Button>
       </form>
       {serverError && (
@@ -228,14 +189,5 @@ function AssignForm({ tableNumber }: { tableNumber: number }) {
 
 export const TableSetupPanelRoot = Root;
 export const TableSetupPanelTableCard = TableCard;
-export const TableSetupPanelJudgeSlot = JudgeSlot;
 export const TableSetupPanelAssignForm = AssignForm;
 
-// --- Compound Export (client-only usage) ---
-
-export const TableSetupPanel = {
-  Root,
-  TableCard,
-  JudgeSlot,
-  AssignForm,
-};

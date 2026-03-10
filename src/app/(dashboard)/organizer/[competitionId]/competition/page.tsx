@@ -15,7 +15,7 @@ import {
 } from "@features/competition";
 import type { CompetitionWithRelations } from "@features/competition";
 
-export default function CompetitionStatusPage() {
+export default function CompetitionPage() {
   const params = useParams<{ competitionId: string }>();
   const [competition, setCompetition] =
     useState<CompetitionWithRelations | null>(null);
@@ -31,7 +31,6 @@ export default function CompetitionStatusPage() {
 
   useEffect(() => {
     load();
-    // Poll every 10s for live updates
     const interval = setInterval(load, 10_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,7 +69,7 @@ export default function CompetitionStatusPage() {
     <div className="space-y-6">
       <PageHeader
         title={competition.name}
-        subtitle="Live Status"
+        subtitle="Competition Control"
         actions={
           canAdvance && (
             <Button onClick={handleAdvance} disabled={advancing}>
@@ -81,6 +80,7 @@ export default function CompetitionStatusPage() {
         }
       />
 
+      {/* Category stepper */}
       <CompetitionStatusStepper
         status={competition.status}
         categoryRounds={competition.categoryRounds}
@@ -114,30 +114,6 @@ export default function CompetitionStatusPage() {
           </SectionCard.Root>
         ))}
       </div>
-
-      {/* Tables overview */}
-      <SectionCard.Root>
-        <SectionCard.Header title="Tables" />
-        <SectionCard.Body>
-          {competition.tables.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No tables configured yet.
-            </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {competition.tables.map((table) => (
-                <div key={table.id} className="rounded-md border p-3">
-                  <p className="font-medium">Table {table.tableNumber}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Captain: {table.captain?.name ?? "Unassigned"} &middot;{" "}
-                    {table.assignments.length}/6 seats filled
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard.Body>
-      </SectionCard.Root>
     </div>
   );
 }

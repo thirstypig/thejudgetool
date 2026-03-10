@@ -6,10 +6,11 @@ export {
   useCompetition,
 } from "./components/CompetitionProvider";
 export { JudgeManagementTabs } from "./components/JudgeManagementTabs";
+export { RosterTab } from "./components/RosterTab";
+export { CheckInTab } from "./components/CheckInTab";
 export { CreateCompetitionSection } from "./components/CreateCompetitionSection";
 export {
   CompetitorListRoot,
-  CompetitorListHeader,
   CompetitorListTable,
   CompetitorListAddForm,
 } from "./components/CompetitorList";
@@ -28,6 +29,12 @@ export {
   toggleCommentCards,
   generateDistribution,
   approveDistribution,
+  checkInTeam,
+  uncheckInTeam,
+  addCompetitorsBulk,
+  getExistingDistribution,
+  resetDistribution,
+  markCategoryRoundSubmittedIfReady,
 } from "./actions";
 export type {
   CompetitionWithRelations,
