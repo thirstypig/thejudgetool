@@ -8,7 +8,6 @@ import {
   TableSetupPanelRoot,
   TableSetupPanelTableCard,
   TableSetupPanelAssignForm,
-  CommentCardToggle,
 } from "@features/competition";
 
 export const metadata: Metadata = {
@@ -30,12 +29,6 @@ export default async function TablesPage({
   return (
     <div className="space-y-6">
       <PageHeader title="Tables" />
-
-      {/* Comment Cards Toggle */}
-      <CommentCardToggle
-        competitionId={competition.id}
-        enabled={competition.commentCardsEnabled}
-      />
 
       <TableSetupPanelRoot
         competitionId={competition.id}

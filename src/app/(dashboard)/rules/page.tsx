@@ -4,6 +4,11 @@ import { PageHeader } from "@/shared/components/common/PageHeader";
 import {
   VALID_SCORES,
   SCORE_LABELS,
+  SCORE_WEIGHTS,
+  MAX_WEIGHTED_SCORE,
+  PERFECT_SCORE,
+  JUDGES_PER_TABLE,
+  COUNTING_JUDGES,
   DQ_SCORE,
 } from "@/shared/constants/kcbs";
 
@@ -124,6 +129,91 @@ export default function RulesPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* Scoring Weights */}
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold tracking-tight">Scoring Weights</h2>
+        <p className="text-sm leading-relaxed">
+          Raw scores are multiplied by KCBS-mandated weights. The maximum
+          weighted score per judge is {MAX_WEIGHTED_SCORE}.
+        </p>
+        <div className="overflow-hidden rounded-lg border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-2 text-left font-semibold">Dimension</th>
+                <th className="px-4 py-2 text-right font-semibold">Weight</th>
+                <th className="px-4 py-2 text-right font-semibold">Max Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="px-4 py-2">Appearance</td>
+                <td className="px-4 py-2 text-right font-mono">&times; {SCORE_WEIGHTS.appearance.toFixed(4)}</td>
+                <td className="px-4 py-2 text-right font-mono">{(9 * SCORE_WEIGHTS.appearance).toFixed(4)}</td>
+              </tr>
+              <tr className="border-b border-primary/30 bg-primary/5">
+                <td className="px-4 py-2 font-semibold">Taste</td>
+                <td className="px-4 py-2 text-right font-mono">&times; {SCORE_WEIGHTS.taste.toFixed(4)}</td>
+                <td className="px-4 py-2 text-right font-mono">{(9 * SCORE_WEIGHTS.taste).toFixed(4)}</td>
+              </tr>
+              <tr className="border-b">
+                <td className="px-4 py-2">Tenderness / Texture</td>
+                <td className="px-4 py-2 text-right font-mono">&times; {SCORE_WEIGHTS.texture.toFixed(4)}</td>
+                <td className="px-4 py-2 text-right font-mono">{(9 * SCORE_WEIGHTS.texture).toFixed(4)}</td>
+              </tr>
+              <tr className="bg-muted/30">
+                <td className="px-4 py-2 font-bold">Total</td>
+                <td className="px-4 py-2 text-right font-mono font-bold">{(SCORE_WEIGHTS.appearance + SCORE_WEIGHTS.taste + SCORE_WEIGHTS.texture).toFixed(4)}</td>
+                <td className="px-4 py-2 text-right font-mono font-bold">{MAX_WEIGHTED_SCORE}.0000</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="space-y-1 text-sm leading-relaxed">
+          <p>
+            <strong>Drop Lowest:</strong> Each table has {JUDGES_PER_TABLE} judges.
+            The lowest weighted total is dropped &mdash; only the top{" "}
+            {COUNTING_JUDGES} count toward the competitor&apos;s final score.
+          </p>
+          <p>
+            <strong>Perfect Score:</strong> {COUNTING_JUDGES} &times;{" "}
+            {MAX_WEIGHTED_SCORE} = <span className="font-bold">{PERFECT_SCORE}</span>
+          </p>
+        </div>
+      </section>
+
+      {/* Tiebreaking Procedures */}
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold tracking-tight">
+          Tiebreaking Procedures
+        </h2>
+        <p className="text-sm leading-relaxed">
+          When two or more competitors have the same weighted total, ties are
+          broken in the following order:
+        </p>
+        <ol className="ml-6 list-decimal space-y-2 text-sm">
+          <li>
+            <strong>Cumulative Taste scores</strong> across all {JUDGES_PER_TABLE}{" "}
+            judges (higher wins)
+          </li>
+          <li>
+            <strong>Cumulative Tenderness/Texture scores</strong> across all{" "}
+            {JUDGES_PER_TABLE} judges (higher wins)
+          </li>
+          <li>
+            <strong>Cumulative Appearance scores</strong> across all{" "}
+            {JUDGES_PER_TABLE} judges (higher wins)
+          </li>
+          <li>
+            <strong>Dropped judge&apos;s weighted score</strong> &mdash; the
+            lowest judge&apos;s weighted total that was dropped (higher wins)
+          </li>
+          <li>
+            <strong>Deterministic coin toss</strong>
+          </li>
+        </ol>
       </section>
 
       {/* Scoring Criteria */}

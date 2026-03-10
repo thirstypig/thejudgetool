@@ -10,6 +10,7 @@ import { StatusBadge } from "@/shared/components/common/StatusBadge";
 import { Button } from "@/shared/components/ui/button";
 import {
   CompetitionStatusStepper,
+  CommentCardToggle,
   getCompetitionById,
   advanceCategoryRound,
 } from "@features/competition";
@@ -87,6 +88,12 @@ export default function CompetitionPage() {
       />
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+      {/* Comment Cards Toggle */}
+      <CommentCardToggle
+        competitionId={competition.id}
+        enabled={competition.commentCardsEnabled}
+      />
 
       {/* Category rounds detail */}
       <div className="grid gap-4 md:grid-cols-2">

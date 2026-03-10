@@ -156,8 +156,9 @@ function AssignForm({ tableNumber }: { tableNumber: number }) {
     <SectionCard.Footer>
       <form onSubmit={onSubmit} className="flex items-end gap-3">
         <div className="space-y-1">
-          <Label>CBJ #</Label>
+          <Label htmlFor="assign-cbj">CBJ #</Label>
           <Input
+            id="assign-cbj"
             placeholder="100001"
             className="w-28 font-mono"
             value={cbjNumber}
@@ -170,7 +171,7 @@ function AssignForm({ tableNumber }: { tableNumber: number }) {
             checked={isCaptain}
             onChange={(e) => setIsCaptain(e.target.checked)}
           />
-          <Crown className="h-3.5 w-3.5 text-amber-500" />
+          <Crown className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
           Captain
         </label>
         <Button type="submit" size="sm" disabled={isSubmitting}>

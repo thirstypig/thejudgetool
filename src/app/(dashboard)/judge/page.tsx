@@ -61,7 +61,6 @@ export default async function JudgePage() {
       }
       return (
         <TableSetupScreen
-          cbjNumber={cbjNumber}
           judgeName={judgeName}
           competitionId={competition.id}
           competitionName={competition.name}

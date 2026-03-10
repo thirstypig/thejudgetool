@@ -151,6 +151,12 @@ Session uses JWT strategy. Includes `role` and `cbjNumber` via JWT callbacks (ca
 - **All server actions must start with an auth guard** — never rely solely on route middleware
 - **Captain actions must verify table ownership** — check `table.captainId === userId` after auth
 - **Score/correction data requires captain+ownership or organizer** — prevents IDOR cross-table access
+- **Security headers** (`next.config.mjs`): CSP (`default-src 'self'`, `script-src 'self' 'unsafe-inline'` + `'unsafe-eval'` dev-only, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- **Session expiry**: JWT sessions expire after 24 hours (`maxAge: 86400` in auth config)
+- **CSV export sanitization**: Double-quotes escaped as `""`, values starting with `=`, `+`, `-`, `@`, `\t`, `\r`, `\n`, `|` are prefixed with `'` to prevent formula injection
+
+### Judge Multi-Phase Flow
+Judges progress through phases: `not-registered` → `awaiting-table` → `pick-seat` → `ready` → `event-info` (gated Start button) → `scoring` (appearance → taste/texture per box) → `comment-cards` (optional, per competition setting). Phase transitions are tracked via `hasStartedJudging` on CompetitionJudge and localStorage keys.
 
 ### CompetitionProvider (`src/features/competition/components/CompetitionProvider.tsx`)
 - React context wrapping the dashboard layout
@@ -193,9 +199,10 @@ Shared components in `src/shared/components/common/`:
 - **RoleBadge** — role-colored pill (JUDGE/TABLE_CAPTAIN/ORGANIZER)
 - **EmptyState** — dashed border box with icon, title, description, action
 - **LoadingSpinner** — animated spinner with optional label
-- **SectionCard** — compound component (Root/Header/Body/Footer) with context
+- **SectionCard** — compound component (Root/Header/Body/Footer) with context. Header accepts `as` prop for heading level (`h2`/`h3`/`h4`, default `h3`)
 - **DataTable** — generic typed table with columns, loading, empty states
-- **ScoreDisplay** — color-coded KCBS score box (1,2,5,6,7,8,9)
+- **ScoreDisplay** — color-coded KCBS score box (1,2,5,6,7,8,9) with `aria-label` for screen readers
+- **FontSizeControl** — judge-facing text size adjuster (from judging feature)
 - **UserAvatar** — CBJ initials in role-colored circle
 - **ConfirmDialog** — wraps AlertDialog with confirm/cancel
 - **ThemeToggle** — sun/moon toggle
@@ -254,13 +261,13 @@ UI primitives in `src/shared/components/ui/`:
 
 **Constants**: defined in `src/shared/constants/kcbs.ts` — `VALID_SCORES`, `SCORE_WEIGHTS`, `MAX_WEIGHTED_SCORE`, `JUDGES_PER_TABLE`, `COUNTING_JUDGES`, `PERFECT_SCORE`, `DQ_SCORE`.
 
-**Rules page**: `/rules` — accessible to all roles. Contains 2025 KCBS Judging Procedures, Judges' Creed, scoring tables, and tiebreaking rules.
+**Rules page**: `/rules` — accessible to all roles. Contains 2025 KCBS Judging Procedures, Judges' Creed, scoring tables, scoring weights table, tiebreaking rules.
 
 ## Future Features (Post-MVP)
 
-### Comment Cards (Implemented — Schema + UI ready, needs polish)
+### Comment Cards (Implemented)
 
-Judges optionally fill out comment cards after scoring each category. Organizers toggle this on/off per competition (`commentCardsEnabled` field on Competition). Comment cards capture taste checkboxes, tenderness checkboxes, appearance free text, and other comments. Schema: `CommentCard` model. Constants: `TASTE_COMMENT_OPTIONS`, `TENDERNESS_COMMENT_OPTIONS` in `kcbs.ts`. Components: `EventInfoScreen`, `CommentCardScreen`, `CommentCardToggle`. Integrated into judge dashboard as `"event-info"` and `"comment-cards"` phases.
+Judges optionally fill out comment cards after scoring each category. Organizers toggle this on/off per competition (`commentCardsEnabled` field on Competition) via CommentCardToggle on the Competition page (`/organizer/[id]/competition`). Comment cards capture taste checkboxes, tenderness checkboxes, appearance free text, and other comments. Schema: `CommentCard` model. Constants: `TASTE_COMMENT_OPTIONS`, `TENDERNESS_COMMENT_OPTIONS` in `kcbs.ts`. Components: `EventInfoScreen`, `CommentCardScreen`, `CommentCardToggle`. Integrated into judge dashboard as `"event-info"` and `"comment-cards"` phases.
 
 ### Box Distribution Proposal
 

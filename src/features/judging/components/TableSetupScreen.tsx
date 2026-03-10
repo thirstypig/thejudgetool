@@ -9,14 +9,12 @@ import { cn } from "@/shared/lib/utils";
 import { registerJudgeAtTable } from "../actions";
 
 interface TableSetupScreenProps {
-  cbjNumber: string;
   judgeName: string;
   competitionId: string;
   competitionName: string;
 }
 
 export function TableSetupScreen({
-  cbjNumber,
   judgeName,
   competitionId,
   competitionName,
@@ -32,7 +30,6 @@ export function TableSetupScreen({
     setLoading(true);
     try {
       await registerJudgeAtTable(
-        cbjNumber,
         competitionId,
         parseInt(tableNumber),
         seatNumber

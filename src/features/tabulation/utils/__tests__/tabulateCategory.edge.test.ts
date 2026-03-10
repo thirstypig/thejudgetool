@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { tabulateCategory, calcWeightedTotal, type SubmissionInput } from "../index";
-import { SCORE_WEIGHTS, DQ_SCORE, VALID_SCORES } from "@/shared/constants/kcbs";
+import { SCORE_WEIGHTS, VALID_SCORES } from "@/shared/constants/kcbs";
 
 function makeJudge(id: string) {
   return { id, name: `Judge ${id}`, cbjNumber: `CBJ-${id}` };

@@ -428,12 +428,11 @@ export async function getActiveCompetitionForJudge(): Promise<{
 // --- Register Judge at Table ---
 
 export async function registerJudgeAtTable(
-  cbjNumber: string,
   competitionId: string,
   tableNumber: number,
   seatNumber: number
 ) {
-  await requireJudge();
+  const { cbjNumber } = await requireJudge();
   const parsed = tableSetupSchema.parse({ tableNumber, seatNumber });
 
   const judge = await prisma.user.findUnique({ where: { cbjNumber } });
