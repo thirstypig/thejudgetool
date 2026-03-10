@@ -196,12 +196,12 @@ export function tabulateCategory(
   return results;
 }
 
-/** Simple deterministic hash for coin-toss tiebreaker */
+/** Simple deterministic hash for coin-toss tiebreaker (always non-negative) */
 function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = (hash << 5) - hash + str.charCodeAt(i);
     hash |= 0;
   }
-  return hash;
+  return Math.abs(hash);
 }

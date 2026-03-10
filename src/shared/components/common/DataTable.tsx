@@ -91,9 +91,10 @@ export function DataTable<T>({
       {/* Search bar — only show if searchFn is provided */}
       {searchFn && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             placeholder="Search..."
+            aria-label="Search"
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             className="pl-9"
@@ -167,16 +168,18 @@ export function DataTable<T>({
                   size="sm"
                   disabled={page === 0}
                   onClick={() => setPage((p) => p - 1)}
+                  aria-label="Previous page"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={page >= totalPages - 1}
                   onClick={() => setPage((p) => p + 1)}
+                  aria-label="Next page"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>

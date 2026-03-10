@@ -36,6 +36,7 @@ export function ScoreDisplay({ score, dimension, size = "md" }: ScoreDisplayProp
         getScoreClasses(score)
       )}
       title={dimension ? `${dimension}: ${label}` : label}
+      aria-label={dimension ? `${dimension}: ${score} — ${label}` : `${score} — ${label}`}
     >
       {score}
     </span>

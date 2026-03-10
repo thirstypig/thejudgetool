@@ -45,32 +45,32 @@ function RequestCard({
   request: CorrectionRequestWithDetails;
 }) {
   const { onResolved } = React.useContext(CorrectionContext);
-  const [acting, setActing] = React.useState(false);
+  const [acting, setActing] = React.useState<"approve" | "deny" | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleApprove() {
-    setActing(true);
+    if (acting) return;
+    setActing("approve");
     setError(null);
     try {
       await approveCorrectionRequest(request.id);
       onResolved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve");
-    } finally {
-      setActing(false);
+      setActing(null);
     }
   }
 
   async function handleDeny() {
-    setActing(true);
+    if (acting) return;
+    setActing("deny");
     setError(null);
     try {
       await denyCorrectionRequest(request.id);
       onResolved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to deny");
-    } finally {
-      setActing(false);
+      setActing(null);
     }
   }
 
@@ -120,7 +120,7 @@ function RequestCard({
           <p className="mt-0.5 text-sm">{request.reason}</p>
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
 
         {/* Actions */}
         <div className="flex gap-2">
@@ -128,21 +128,21 @@ function RequestCard({
             size="sm"
             variant="outline"
             onClick={handleApprove}
-            disabled={acting}
+            disabled={!!acting}
             className="text-green-600 hover:bg-green-50 hover:text-green-700"
           >
             <Check className="mr-1 h-3.5 w-3.5" />
-            Approve
+            {acting === "approve" ? "Approving..." : "Approve"}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={handleDeny}
-            disabled={acting}
+            disabled={!!acting}
             className="text-red-600 hover:bg-red-50 hover:text-red-700"
           >
             <X className="mr-1 h-3.5 w-3.5" />
-            Deny
+            {acting === "deny" ? "Denying..." : "Deny"}
           </Button>
         </div>
       </SectionCard.Body>

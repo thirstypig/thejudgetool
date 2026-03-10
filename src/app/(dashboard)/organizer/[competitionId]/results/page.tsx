@@ -47,37 +47,48 @@ export default function ResultsPage() {
   const [advancing, setAdvancing] = useState(false);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // Stable polling function — always fetches competition + progress
+  const poll = useCallback(async () => {
     try {
-      // Always fetch competition; only fetch data for active tab
-      const comp = await getCompetitionById(params.competitionId);
+      const [comp, prog] = await Promise.all([
+        getCompetitionById(params.competitionId),
+        getCompetitionProgress(params.competitionId),
+      ]);
       setCompetition(comp);
-
-      if (activeTab === "progress") {
-        setProgress(await getCompetitionProgress(params.competitionId));
-      } else if (activeTab === "results") {
-        setResults(await getAllCategoryResults(params.competitionId));
-      } else if (activeTab === "audit") {
-        setAuditLogs(await getAuditLog(params.competitionId));
-      }
-      // score-audit tab loads on demand via ScoreAuditView
+      setProgress(prog);
     } finally {
       setLoading(false);
     }
-  }, [params.competitionId, activeTab]);
+  }, [params.competitionId]);
 
+  // Tab-specific data loader — no interval dependency
+  const loadTabData = useCallback(async (tab: Tab) => {
+    if (tab === "results") {
+      setResults(await getAllCategoryResults(params.competitionId));
+    } else if (tab === "audit") {
+      setAuditLogs(await getAuditLog(params.competitionId));
+    }
+    // progress loaded by poll, score-audit loaded on demand
+  }, [params.competitionId]);
+
+  // Stable polling interval (doesn't restart on tab change)
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 15_000);
+    poll();
+    const interval = setInterval(poll, 15_000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [poll]);
+
+  // Load tab-specific data on tab change
+  useEffect(() => {
+    loadTabData(activeTab);
+  }, [activeTab, loadTabData]);
 
   async function handleAdvance() {
     try {
       setAdvancing(true);
       setAdvanceError(null);
       await advanceCategoryRound(params.competitionId);
-      await load();
+      await poll();
     } catch (err) {
       setAdvanceError(err instanceof Error ? err.message : "Failed to advance round");
     } finally {
@@ -127,7 +138,7 @@ export default function ResultsPage() {
         categoryRounds={competition.categoryRounds}
       />
 
-      {advanceError && <p className="text-sm text-destructive">{advanceError}</p>}
+      {advanceError && <p role="alert" className="text-sm text-destructive">{advanceError}</p>}
 
       {/* Tab bar */}
       <div className="flex gap-1 rounded-lg bg-muted p-1">
@@ -166,7 +177,7 @@ export default function ResultsPage() {
                 categoryRoundId={cat.categoryRoundId}
                 categoryName={cat.categoryName}
                 results={catResults}
-                onDeclared={load}
+                onDeclared={() => loadTabData("results")}
               />
             );
           })}

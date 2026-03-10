@@ -82,7 +82,7 @@ export function CommentCardScreen({
   }
 
   async function handleSubmit() {
-    if (!selectedId || !currentCard) return;
+    if (!selectedId || !currentCard || loading) return;
     setError(null);
     setLoading(true);
     try {
@@ -134,16 +134,16 @@ export function CommentCardScreen({
                 {sc && (
                   <div className="mt-2 flex gap-2">
                     <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground">A</p>
-                      <ScoreDisplay score={sc.appearance} size="sm" />
+                      <abbr title="Appearance" className="text-[10px] text-muted-foreground no-underline">A</abbr>
+                      <ScoreDisplay score={sc.appearance} dimension="appearance" size="sm" />
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground">T</p>
-                      <ScoreDisplay score={sc.taste} size="sm" />
+                      <abbr title="Taste" className="text-[10px] text-muted-foreground no-underline">T</abbr>
+                      <ScoreDisplay score={sc.taste} dimension="taste" size="sm" />
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] text-muted-foreground">X</p>
-                      <ScoreDisplay score={sc.texture} size="sm" />
+                      <abbr title="Texture" className="text-[10px] text-muted-foreground no-underline">X</abbr>
+                      <ScoreDisplay score={sc.texture} dimension="texture" size="sm" />
                     </div>
                   </div>
                 )}
@@ -210,8 +210,9 @@ export function CommentCardScreen({
       {/* Comment Fields */}
       <div className="mt-4 space-y-5">
         <div className="space-y-1">
-          <Label className="text-sm font-medium">Other (meat type)</Label>
+          <Label htmlFor="comment-other-line" className="text-sm font-medium">Other (meat type)</Label>
           <Input
+            id="comment-other-line"
             value={currentCard?.otherLine ?? ""}
             onChange={(e) => updateCard({ otherLine: e.target.value })}
             placeholder="e.g., Turkey, Sausage..."
@@ -219,8 +220,9 @@ export function CommentCardScreen({
         </div>
 
         <div className="space-y-1">
-          <Label className="text-sm font-medium">Appearance Comments</Label>
+          <Label htmlFor="comment-appearance" className="text-sm font-medium">Appearance Comments</Label>
           <textarea
+            id="comment-appearance"
             className="w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             rows={2}
             value={currentCard?.appearanceText ?? ""}
@@ -229,8 +231,8 @@ export function CommentCardScreen({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Taste</Label>
+        <fieldset className="space-y-2 border-0 p-0 m-0">
+          <legend className="text-sm font-medium">Taste</legend>
           <div className="grid grid-cols-2 gap-1.5">
             {TASTE_COMMENT_OPTIONS.map((opt) => (
               <label
@@ -251,10 +253,10 @@ export function CommentCardScreen({
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Tenderness / Texture</Label>
+        <fieldset className="space-y-2 border-0 p-0 m-0">
+          <legend className="text-sm font-medium">Tenderness / Texture</legend>
           <div className="grid grid-cols-2 gap-1.5">
             {TENDERNESS_COMMENT_OPTIONS.map((opt) => (
               <label
@@ -275,11 +277,12 @@ export function CommentCardScreen({
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
         <div className="space-y-1">
-          <Label className="text-sm font-medium">Other Comments</Label>
+          <Label htmlFor="comment-other" className="text-sm font-medium">Other Comments</Label>
           <textarea
+            id="comment-other"
             className="w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             rows={2}
             value={currentCard?.otherComments ?? ""}
@@ -288,7 +291,7 @@ export function CommentCardScreen({
           />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </div>
 
       {/* Actions */}

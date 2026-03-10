@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
+import bcrypt from "bcryptjs";
 import { requireAuth, requireOrganizer } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
 import {
@@ -135,6 +136,8 @@ export async function addCompetitor(
   data: { teamName: string; anonymousNumber: string; headCookName?: string; headCookKcbsNumber?: string }
 ) {
   await requireOrganizer();
+  // Verify competition exists (prevents writing to unknown competitions)
+  await prisma.competition.findUniqueOrThrow({ where: { id: competitionId } });
   const parsed = competitorSchema.parse(data);
 
   const existing = await prisma.competitor.findUnique({
@@ -174,6 +177,8 @@ export async function addCompetitorsBulk(
   teams: { anonymousNumber: string; teamName: string; headCookName?: string; headCookKcbsNumber?: string }[]
 ) {
   await requireOrganizer();
+  // Verify competition exists (prevents writing to unknown competitions)
+  await prisma.competition.findUniqueOrThrow({ where: { id: competitionId } });
 
   const parsed = bulkCompetitorSchema.parse(teams);
 
@@ -280,14 +285,15 @@ export async function generateJudgePin(competitionId: string) {
   await requireOrganizer();
 
   const pin = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit
+  const hashedPin = await bcrypt.hash(pin, 10);
 
   await prisma.competition.update({
     where: { id: competitionId },
-    data: { judgePin: pin },
+    data: { judgePin: hashedPin },
   });
 
   revalidatePath(`/organizer/${competitionId}/judges`);
-  return pin;
+  return pin; // Return plaintext for display; only hash is stored
 }
 
 // --- Register Judge for Competition ---
@@ -387,12 +393,18 @@ export async function getCompetitionRoster(
 export async function checkInJudge(competitionJudgeId: string) {
   await requireOrganizer();
 
+  // Verify registration exists (prevents blind IDOR)
+  const registration = await prisma.competitionJudge.findUniqueOrThrow({
+    where: { id: competitionJudgeId },
+    select: { competitionId: true },
+  });
+
   await prisma.competitionJudge.update({
     where: { id: competitionJudgeId },
     data: { checkedIn: true, checkedInAt: new Date() },
   });
 
-  revalidatePath("/organizer");
+  revalidatePath(`/organizer/${registration.competitionId}`);
 }
 
 // --- Uncheck In Judge ---
@@ -400,12 +412,18 @@ export async function checkInJudge(competitionJudgeId: string) {
 export async function uncheckInJudge(competitionJudgeId: string) {
   await requireOrganizer();
 
+  // Verify registration exists (prevents blind IDOR)
+  const registration = await prisma.competitionJudge.findUniqueOrThrow({
+    where: { id: competitionJudgeId },
+    select: { competitionId: true },
+  });
+
   await prisma.competitionJudge.update({
     where: { id: competitionJudgeId },
     data: { checkedIn: false, checkedInAt: null },
   });
 
-  revalidatePath("/organizer");
+  revalidatePath(`/organizer/${registration.competitionId}`);
 }
 
 // --- Assign Judge to Table Only (no seat) ---
@@ -830,12 +848,18 @@ export async function resetDistribution(competitionId: string) {
 export async function checkInTeam(competitorId: string) {
   await requireOrganizer();
 
+  // Verify competitor exists (prevents blind IDOR)
+  const competitor = await prisma.competitor.findUniqueOrThrow({
+    where: { id: competitorId },
+    select: { competitionId: true },
+  });
+
   await prisma.competitor.update({
     where: { id: competitorId },
     data: { checkedIn: true, checkedInAt: new Date() },
   });
 
-  revalidatePath("/organizer");
+  revalidatePath(`/organizer/${competitor.competitionId}`);
 }
 
 // --- Uncheck In Team ---
@@ -843,12 +867,18 @@ export async function checkInTeam(competitorId: string) {
 export async function uncheckInTeam(competitorId: string) {
   await requireOrganizer();
 
+  // Verify competitor exists (prevents blind IDOR)
+  const competitor = await prisma.competitor.findUniqueOrThrow({
+    where: { id: competitorId },
+    select: { competitionId: true },
+  });
+
   await prisma.competitor.update({
     where: { id: competitorId },
     data: { checkedIn: false, checkedInAt: null },
   });
 
-  revalidatePath("/organizer");
+  revalidatePath(`/organizer/${competitor.competitionId}`);
 }
 
 // --- Mark Category Round Submitted (if all tables done) ---
@@ -856,9 +886,20 @@ export async function uncheckInTeam(competitorId: string) {
 export async function markCategoryRoundSubmittedIfReady(
   competitionId: string,
   categoryRoundId: string,
-  tableId: string,
-  captainId: string
+  tableId: string
 ) {
+  const session = await requireAuth();
+  const captainId = (session.user as { id: string }).id;
+
+  // Verify the caller is the captain of this table
+  const table = await prisma.table.findUniqueOrThrow({
+    where: { id: tableId },
+    select: { captainId: true },
+  });
+  if (table.captainId !== captainId) {
+    throw new Error("Only the table captain can submit a category");
+  }
+
   await prisma.$transaction(async (tx) => {
     // Create audit log inside transaction for atomicity
     await tx.auditLog.create({

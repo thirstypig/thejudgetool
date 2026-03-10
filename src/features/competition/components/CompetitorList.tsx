@@ -219,7 +219,7 @@ function AddForm() {
       )}
       {!showForm && (serverError || csvResult) && (
         <SectionCard.Body>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <p role="alert" className="text-sm text-destructive">{serverError}</p>}
           {csvResult && <p className="text-sm text-green-600 dark:text-green-400">{csvResult}</p>}
         </SectionCard.Body>
       )}

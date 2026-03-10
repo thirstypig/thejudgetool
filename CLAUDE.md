@@ -49,23 +49,30 @@ src/
       loading.tsx           — Dashboard-level loading spinner
       error.tsx             — Dashboard-level error boundary
       not-found.tsx         — Dashboard-level 404
-      organizer/            — Organizer pages (competitions, setup, status, results)
+      organizer/            — Organizer pages
+        [competitionId]/
+          teams/            — BBQ Teams registration, check-in, boxes
+          judges/           — Judge registration, check-in, table assignment
+          competition/      — Box distribution, comment cards, category control
+          results/          — Progress, results, score audit, audit log
       judge/                — Judge scoring dashboard + sheet panel
       captain/              — Table captain review + submit dashboard
     api/auth/[...nextauth]/ — Auth API route
   features/                 — Feature modules (isolated domains)
-    competition/            — Competition CRUD, setup, status, CompetitionProvider
+    competition/            — Competition CRUD, box distribution, category advancement, CompetitionProvider
     judging/                — Judge scoring, score cards, correction requests
     scoring/                — Table captain scoring review, corrections, category submission
     tabulation/             — Results tabulation, winner declaration, export, audit log
-    users/                  — User management (stub)
+    users/                  — Judge import (JudgeImportForm component)
   shared/
     components/
       common/               — Design system: PageHeader, StatusBadge, DataTable, SectionCard, etc.
       ui/                   — Primitives: button, input, label, badge, alert-dialog, card, tabs, dropdown-menu, table, sheet
     constants/kcbs.ts       — KCBS rules, categories, enums
     lib/
-      auth.ts               — next-auth config (JWT strategy)
+      auth.ts               — next-auth config (JWT strategy, bcrypt, rate limiting)
+      auth-guards.ts        — Server action auth guards (requireAuth, requireOrganizer, requireJudge, requireCaptain)
+      rate-limit.ts         — In-memory sliding-window rate limiter for login
       prisma.ts             — Prisma singleton
       utils.ts              — cn() utility
     types/                  — Re-exported Prisma model types
@@ -134,7 +141,22 @@ Session uses JWT strategy. Includes `role` and `cbjNumber` via JWT callbacks (ca
 - Desktop: fixed 240px sidebar with role-filtered navigation
 - Mobile: Sheet drawer triggered by hamburger menu
 - Top bar: competition selector (organizer only), ThemeToggle, user avatar + sign out
-- Nav links for Setup/Status/Results resolve to active competition ID
+- Nav links for Teams/Judges/Competition/Results resolve to active competition ID
+
+### Server-Side Auth Guards (`src/shared/lib/auth-guards.ts`)
+- `requireAuth()` — any authenticated user, throws "Unauthorized"
+- `requireOrganizer()` — ORGANIZER role only
+- `requireJudge()` — JUDGE or TABLE_CAPTAIN, returns `{ userId, cbjNumber }`
+- `requireCaptain()` — TABLE_CAPTAIN or ORGANIZER, returns `{ userId }`
+- **All server actions must start with an auth guard** — never rely solely on route middleware
+- **Captain actions must verify table ownership** — check `table.captainId === userId` after auth
+- **Score/correction data requires captain+ownership or organizer** — prevents IDOR cross-table access
+- **Security headers** (`next.config.mjs`): CSP (`default-src 'self'`, `script-src 'self' 'unsafe-inline'` + `'unsafe-eval'` dev-only, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- **Session expiry**: JWT sessions expire after 24 hours (`maxAge: 86400` in auth config)
+- **CSV export sanitization**: Double-quotes escaped as `""`, values starting with `=`, `+`, `-`, `@`, `\t`, `\r`, `\n`, `|` are prefixed with `'` to prevent formula injection
+
+### Judge Multi-Phase Flow
+Judges progress through phases: `not-registered` → `awaiting-table` → `pick-seat` → `ready` → `event-info` (gated Start button) → `scoring` (appearance → taste/texture per box) → `comment-cards` (optional, per competition setting). Phase transitions are tracked via `hasStartedJudging` on CompetitionJudge and localStorage keys.
 
 ### CompetitionProvider (`src/features/competition/components/CompetitionProvider.tsx`)
 - React context wrapping the dashboard layout
@@ -145,24 +167,25 @@ Session uses JWT strategy. Includes `role` and `cbjNumber` via JWT callbacks (ca
 ## Testing
 
 Unit tests use **Vitest** (`vitest.config.ts` at project root). Tests live alongside source in `__tests__/` directories:
-- `features/competition/utils/__tests__/` — BR-2 validation
-- `features/tabulation/utils/__tests__/` — tabulation logic (averages, DQ, outliers)
-- `features/judging/schemas/__tests__/` — scorecard schema validation
+- `features/competition/utils/__tests__/` — BR-2 validation, box distribution algorithm + edge cases
+- `features/tabulation/utils/__tests__/` — tabulation logic (averages, DQ, outliers, tiebreaking) + edge cases
+- `features/judging/schemas/__tests__/` — scorecard, correction, tableSetup, boxCode schema validation
+
+**7 test files, 113 tests total.** See `TESTING.md` for the full integration smoke test checklist.
 
 Pure utility functions extracted for testability:
-- `features/competition/utils/` — `validateNoRepeatCompetitor()` (pure version)
-- `features/tabulation/utils/` — `tabulateCategory()` (pure version)
-
-See `TESTING.md` for the integration smoke test checklist.
+- `features/competition/utils/` — `validateNoRepeatCompetitor()`, `generateBoxDistribution()` (pure versions)
+- `features/tabulation/utils/` — `tabulateCategory()`, `calcWeightedTotal()` (pure versions)
 
 ## Seed Data
 
 - Competition: "American Royal Open 2026" (ACTIVE)
 - Organizer: organizer@bbq-judge.test / organizer123
-- 12 Judges: CBJ-001 through CBJ-012, all PIN: 1234
-- Table 1 Captain: CBJ-001, Table 2 Captain: CBJ-007
-- Competitors: 101–106 (6 teams)
+- 24 Judges: 100001–100024, all PIN: 1234
+- 4 Tables with captains: 100001, 100007, 100013, 100019 (6 judges each)
+- 24 BBQ Teams: 101–124 (16 checked in, 8 not)
 - Categories: Chicken (ACTIVE), Pork Ribs, Pork, Brisket (PENDING)
+- Competition judgePin: "1234"
 - Pre-filled: Table 1 Chicken scores for competitors 101–104
 - Competitor 104 has DQ score + pending correction request
 
@@ -176,9 +199,10 @@ Shared components in `src/shared/components/common/`:
 - **RoleBadge** — role-colored pill (JUDGE/TABLE_CAPTAIN/ORGANIZER)
 - **EmptyState** — dashed border box with icon, title, description, action
 - **LoadingSpinner** — animated spinner with optional label
-- **SectionCard** — compound component (Root/Header/Body/Footer) with context
+- **SectionCard** — compound component (Root/Header/Body/Footer) with context. Header accepts `as` prop for heading level (`h2`/`h3`/`h4`, default `h3`)
 - **DataTable** — generic typed table with columns, loading, empty states
-- **ScoreDisplay** — color-coded KCBS score box (1,2,5,6,7,8,9)
+- **ScoreDisplay** — color-coded KCBS score box (1,2,5,6,7,8,9) with `aria-label` for screen readers
+- **FontSizeControl** — judge-facing text size adjuster (from judging feature)
 - **UserAvatar** — CBJ initials in role-colored circle
 - **ConfirmDialog** — wraps AlertDialog with confirm/cancel
 - **ThemeToggle** — sun/moon toggle
@@ -237,13 +261,13 @@ UI primitives in `src/shared/components/ui/`:
 
 **Constants**: defined in `src/shared/constants/kcbs.ts` — `VALID_SCORES`, `SCORE_WEIGHTS`, `MAX_WEIGHTED_SCORE`, `JUDGES_PER_TABLE`, `COUNTING_JUDGES`, `PERFECT_SCORE`, `DQ_SCORE`.
 
-**Rules page**: `/rules` — accessible to all roles. Contains 2025 KCBS Judging Procedures, Judges' Creed, scoring tables, and tiebreaking rules.
+**Rules page**: `/rules` — accessible to all roles. Contains 2025 KCBS Judging Procedures, Judges' Creed, scoring tables, scoring weights table, tiebreaking rules.
 
 ## Future Features (Post-MVP)
 
-### Comment Cards (Implemented — Schema + UI ready, needs polish)
+### Comment Cards (Implemented)
 
-Judges optionally fill out comment cards after scoring each category. Organizers toggle this on/off per competition (`commentCardsEnabled` field on Competition). Comment cards capture taste checkboxes, tenderness checkboxes, appearance free text, and other comments. Schema: `CommentCard` model. Constants: `TASTE_COMMENT_OPTIONS`, `TENDERNESS_COMMENT_OPTIONS` in `kcbs.ts`. Components: `EventInfoScreen`, `CommentCardScreen`, `CommentCardToggle`. Integrated into judge dashboard as `"event-info"` and `"comment-cards"` phases.
+Judges optionally fill out comment cards after scoring each category. Organizers toggle this on/off per competition (`commentCardsEnabled` field on Competition) via CommentCardToggle on the Competition page (`/organizer/[id]/competition`). Comment cards capture taste checkboxes, tenderness checkboxes, appearance free text, and other comments. Schema: `CommentCard` model. Constants: `TASTE_COMMENT_OPTIONS`, `TENDERNESS_COMMENT_OPTIONS` in `kcbs.ts`. Components: `EventInfoScreen`, `CommentCardScreen`, `CommentCardToggle`. Integrated into judge dashboard as `"event-info"` and `"comment-cards"` phases.
 
 ### Box Distribution Proposal
 

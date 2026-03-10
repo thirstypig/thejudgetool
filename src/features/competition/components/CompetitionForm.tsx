@@ -43,7 +43,7 @@ export function CompetitionForm() {
         <Label htmlFor="name">Competition Name</Label>
         <Input id="name" placeholder="e.g. State BBQ Championship" {...register("name")} />
         {errors.name && (
-          <p className="text-sm text-destructive">{errors.name.message}</p>
+          <p role="alert" className="text-sm text-destructive">{errors.name.message}</p>
         )}
       </div>
 
@@ -51,7 +51,7 @@ export function CompetitionForm() {
         <Label htmlFor="date">Date</Label>
         <Input id="date" type="datetime-local" {...register("date")} />
         {errors.date && (
-          <p className="text-sm text-destructive">{errors.date.message}</p>
+          <p role="alert" className="text-sm text-destructive">{errors.date.message}</p>
         )}
       </div>
 
@@ -59,12 +59,12 @@ export function CompetitionForm() {
         <Label htmlFor="location">Location</Label>
         <Input id="location" placeholder="City, State" {...register("location")} />
         {errors.location && (
-          <p className="text-sm text-destructive">{errors.location.message}</p>
+          <p role="alert" className="text-sm text-destructive">{errors.location.message}</p>
         )}
       </div>
 
       {serverError && (
-        <p className="text-sm text-destructive">{serverError}</p>
+        <p role="alert" className="text-sm text-destructive">{serverError}</p>
       )}
 
       <Button type="submit" disabled={isSubmitting}>

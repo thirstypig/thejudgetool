@@ -36,11 +36,12 @@ function Root({ bordered = true, className, children, ...props }: RootProps) {
 
 interface HeaderProps {
   title: string;
+  as?: "h2" | "h3" | "h4";
   actions?: React.ReactNode;
   className?: string;
 }
 
-function Header({ title, actions, className }: HeaderProps) {
+function Header({ title, as: Tag = "h3", actions, className }: HeaderProps) {
   const { bordered } = React.useContext(SectionCardContext);
 
   return (
@@ -51,9 +52,9 @@ function Header({ title, actions, className }: HeaderProps) {
         className
       )}
     >
-      <h3 className="text-lg font-semibold leading-none tracking-tight">
+      <Tag className="text-lg font-semibold leading-none tracking-tight">
         {title}
-      </h3>
+      </Tag>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   );

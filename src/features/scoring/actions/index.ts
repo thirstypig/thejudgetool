@@ -17,11 +17,24 @@ export async function getTableScoringStatus(
   tableId: string,
   categoryRoundId: string
 ): Promise<TableScoringStatus> {
-  await requireAuth();
+  const { userId } = await requireCaptain();
   const table = await prisma.table.findUniqueOrThrow({
     where: { id: tableId },
-    select: { id: true, tableNumber: true },
+    select: { id: true, tableNumber: true, captainId: true },
   });
+
+  // Organizers can view any table; captains only their own
+  const session = await prisma.table.findFirst({
+    where: { id: tableId, captainId: userId },
+    select: { id: true },
+  });
+  const isOrganizer = !!(await prisma.user.findFirst({
+    where: { id: userId, role: "ORGANIZER" },
+    select: { id: true },
+  }));
+  if (!session && !isOrganizer) {
+    throw new Error("You can only view scoring status for your own table");
+  }
 
   const categoryRound = await prisma.categoryRound.findUniqueOrThrow({
     where: { id: categoryRoundId },
@@ -93,7 +106,21 @@ export async function getTableScoreCards(
   tableId: string,
   categoryRoundId: string
 ): Promise<ScoreCardWithJudge[]> {
-  await requireCaptain();
+  const { userId } = await requireCaptain();
+
+  // Verify captain owns this table (organizers also allowed)
+  const table = await prisma.table.findUniqueOrThrow({
+    where: { id: tableId },
+    select: { captainId: true },
+  });
+  const isOrganizer = !!(await prisma.user.findFirst({
+    where: { id: userId, role: "ORGANIZER" },
+    select: { id: true },
+  }));
+  if (table.captainId !== userId && !isOrganizer) {
+    throw new Error("You can only view score cards for your own table");
+  }
+
   const scoreCards = await prisma.scoreCard.findMany({
     where: {
       submission: { tableId, categoryRoundId },
@@ -125,7 +152,20 @@ export async function getTableScoreCards(
 export async function getPendingCorrectionRequests(
   tableId: string
 ): Promise<CorrectionRequestWithDetails[]> {
-  await requireAuth();
+  const { userId } = await requireCaptain();
+
+  // Verify captain owns this table (organizers also allowed)
+  const table = await prisma.table.findUniqueOrThrow({
+    where: { id: tableId },
+    select: { captainId: true },
+  });
+  const isOrganizer = !!(await prisma.user.findFirst({
+    where: { id: userId, role: "ORGANIZER" },
+    select: { id: true },
+  }));
+  if (table.captainId !== userId && !isOrganizer) {
+    throw new Error("You can only view correction requests for your own table");
+  }
   const requests = await prisma.correctionRequest.findMany({
     where: {
       status: "PENDING",
@@ -164,7 +204,7 @@ export async function approveCorrectionRequest(
 
   const request = await prisma.correctionRequest.findUniqueOrThrow({
     where: { id: requestId },
-    include: { scoreCard: { include: { submission: { select: { tableId: true } } } } },
+    include: { scoreCard: { include: { submission: { select: { tableId: true, categoryRound: { select: { competitionId: true } } } } } } },
   });
 
   // Verify captain owns this table
@@ -180,7 +220,9 @@ export async function approveCorrectionRequest(
     throw new Error("This correction request has already been resolved");
   }
 
-  // Unlock the score card and update correction status
+  const competitionId = request.scoreCard.submission.categoryRound.competitionId;
+
+  // Unlock the score card, update correction status, and log audit
   const [correction] = await prisma.$transaction([
     prisma.correctionRequest.update({
       where: { id: requestId },
@@ -193,6 +235,15 @@ export async function approveCorrectionRequest(
     prisma.scoreCard.update({
       where: { id: request.scoreCardId },
       data: { locked: false },
+    }),
+    prisma.auditLog.create({
+      data: {
+        competitionId,
+        actorId: captainId,
+        action: "APPROVE_CORRECTION",
+        entityId: requestId,
+        entityType: "CorrectionRequest",
+      },
     }),
   ]);
 
@@ -210,7 +261,7 @@ export async function denyCorrectionRequest(
 
   const request = await prisma.correctionRequest.findUniqueOrThrow({
     where: { id: requestId },
-    include: { scoreCard: { include: { submission: { select: { tableId: true } } } } },
+    include: { scoreCard: { include: { submission: { select: { tableId: true, categoryRound: { select: { competitionId: true } } } } } } },
   });
 
   // Verify captain owns this table
@@ -226,14 +277,25 @@ export async function denyCorrectionRequest(
     throw new Error("This correction request has already been resolved");
   }
 
-  const correction = await prisma.correctionRequest.update({
-    where: { id: requestId },
-    data: {
-      status: "DENIED",
-      decidedBy: captainId,
-      decidedAt: new Date(),
-    },
-  });
+  const [correction] = await prisma.$transaction([
+    prisma.correctionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "DENIED",
+        decidedBy: captainId,
+        decidedAt: new Date(),
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        competitionId: request.scoreCard.submission.categoryRound.competitionId,
+        actorId: captainId,
+        action: "DENY_CORRECTION",
+        entityId: requestId,
+        entityType: "CorrectionRequest",
+      },
+    }),
+  ]);
 
   revalidatePath("/captain");
   return correction;
@@ -245,7 +307,21 @@ export async function getTableCommentCards(
   tableId: string,
   categoryRoundId: string
 ): Promise<CommentCardWithJudge[]> {
-  await requireCaptain();
+  const { userId } = await requireCaptain();
+
+  // Verify captain owns this table (organizers also allowed)
+  const table = await prisma.table.findUniqueOrThrow({
+    where: { id: tableId },
+    select: { captainId: true },
+  });
+  const isOrganizer = !!(await prisma.user.findFirst({
+    where: { id: userId, role: "ORGANIZER" },
+    select: { id: true },
+  }));
+  if (table.captainId !== userId && !isOrganizer) {
+    throw new Error("You can only view comment cards for your own table");
+  }
+
   const commentCards = await prisma.commentCard.findMany({
     where: {
       categoryRoundId,
@@ -336,8 +412,7 @@ export async function submitCategoryToOrganizer(
   await markCategoryRoundSubmittedIfReady(
     table.competitionId,
     categoryRoundId,
-    tableId,
-    captainId
+    tableId
   );
 
   revalidatePath("/captain");

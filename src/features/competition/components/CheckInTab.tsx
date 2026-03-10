@@ -147,6 +147,7 @@ export function CheckInTab({
               min={1}
               placeholder="#"
               className="h-7 w-16 font-mono text-xs"
+              aria-label={`Assign table number for judge ${row.user.cbjNumber}`}
               value={tableInputs[row.userId] || ""}
               onChange={(e) =>
                 setTableInputs((prev) => ({
@@ -159,6 +160,7 @@ export function CheckInTab({
               variant="ghost"
               size="sm"
               className="h-7 px-2"
+              aria-label="Assign table"
               onClick={() => handleAssignTable(row.userId)}
               disabled={!tableInputs[row.userId]}
             >
@@ -265,7 +267,7 @@ export function CheckInTab({
             }
           />
           {randomError && (
-            <p className="text-sm text-destructive">{randomError}</p>
+            <p role="alert" className="text-sm text-destructive">{randomError}</p>
           )}
         </div>
       )}

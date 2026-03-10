@@ -94,6 +94,7 @@ model TableAssignment {
   user  User  @relation(fields: [userId], references: [id])
 
   @@unique([tableId, seatNumber])
+  @@index([userId])
 }
 
 model CompetitionJudge {
@@ -109,6 +110,7 @@ model CompetitionJudge {
   user        User        @relation(fields: [userId], references: [id])
 
   @@unique([competitionId, userId])
+  @@index([userId])
 }
 
 model CategoryRound {
@@ -143,6 +145,8 @@ model Submission {
   commentCards    CommentCard[]
 
   @@unique([categoryRoundId, tableId, boxCode])
+  @@index([tableId])
+  @@index([categoryRoundId])
 }
 
 model ScoreCard {
@@ -161,6 +165,7 @@ model ScoreCard {
   correctionRequests  CorrectionRequest[]
 
   @@unique([submissionId, judgeId])
+  @@index([judgeId])
 }
 
 model CorrectionRequest {
@@ -175,6 +180,9 @@ model CorrectionRequest {
   scoreCard ScoreCard @relation(fields: [scoreCardId], references: [id], onDelete: Cascade)
   judge     User      @relation("CorrectionJudge", fields: [judgeId], references: [id])
   decider   User?     @relation("CorrectionDecider", fields: [decidedBy], references: [id])
+
+  @@index([scoreCardId])
+  @@index([status])
 }
 
 model AuditLog {

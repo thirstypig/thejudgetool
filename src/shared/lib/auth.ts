@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/shared/lib/prisma";
+import { checkRateLimit, resetRateLimit } from "@/shared/lib/rate-limit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -17,25 +19,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           pin: string;
         };
 
-        // Normalize: strip "CBJ-" prefix, trim whitespace
-        const normalized = rawCbj.replace(/^CBJ-/i, "").trim();
+        const rateLimitKey = `judge:${rawCbj}`;
+        checkRateLimit(rateLimitKey);
 
-        // Try exact match first, then without leading zeros
+        // Normalize: strip "CBJ-" prefix, trim whitespace, strip leading zeros
+        const stripped = rawCbj.replace(/^CBJ-/i, "").trim();
+        // Canonical form: no leading zeros (e.g., "00123" → "123", "0" → "0")
+        const normalized = stripped.replace(/^0+/, "") || "0";
+
+        // Single deterministic lookup — no fallback ambiguity
         let user = await prisma.user.findUnique({
           where: { cbjNumber: normalized },
         });
-        if (!user) {
-          // Try without leading zeros (e.g., "001" → "1")
-          const withoutZeros = normalized.replace(/^0+/, "") || "0";
+        // Also try exact input if canonical form didn't match (backward compat)
+        if (!user && stripped !== normalized) {
           user = await prisma.user.findUnique({
-            where: { cbjNumber: withoutZeros },
-          });
-        }
-        if (!user) {
-          // Try with zero-padding (e.g., "1" → "001")
-          const padded = normalized.padStart(3, "0");
-          user = await prisma.user.findUnique({
-            where: { cbjNumber: padded },
+            where: { cbjNumber: stripped },
           });
         }
 
@@ -49,12 +48,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         const competitionPin = competitionReg?.competition?.judgePin;
-        const pinMatch = competitionPin
-          ? pin === competitionPin
-          : user.pin !== "" && pin === user.pin; // Fallback to user.pin for backward compat
+        let pinMatch = false;
+        if (competitionPin) {
+          pinMatch = await bcrypt.compare(pin, competitionPin);
+        } else if (user.pin) {
+          pinMatch = await bcrypt.compare(pin, user.pin);
+        }
 
-        if (!pinMatch) return null;
+        if (!pinMatch) {
+          console.warn(`[auth] Failed judge login attempt for CBJ: ${stripped}`);
+          return null;
+        }
 
+        resetRateLimit(rateLimitKey);
         return {
           id: user.id,
           name: user.name,
@@ -77,13 +83,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           password: string;
         };
 
+        const rateLimitKey = `organizer:${email}`;
+        checkRateLimit(rateLimitKey);
+
         const user = await prisma.user.findUnique({
           where: { email },
         });
 
-        if (!user || user.role !== "ORGANIZER" || user.pin !== password) {
+        if (!user || user.role !== "ORGANIZER" || !user.pin) {
+          console.warn(`[auth] Failed organizer login attempt for: ${email}`);
           return null;
         }
+
+        const passwordMatch = await bcrypt.compare(password, user.pin);
+        if (!passwordMatch) {
+          console.warn(`[auth] Failed organizer login attempt for: ${email}`);
+          return null;
+        }
+
+        resetRateLimit(rateLimitKey);
 
         return {
           id: user.id,
@@ -117,5 +135,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours
   },
 });

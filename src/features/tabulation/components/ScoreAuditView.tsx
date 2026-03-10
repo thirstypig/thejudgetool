@@ -26,11 +26,15 @@ export function ScoreAuditView({
   const [data, setData] = useState<DetailedCategoryResult | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!selectedRound) return;
     setLoading(true);
+    setError(null);
     getDetailedCategoryResults(competitionId, selectedRound)
       .then(setData)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load score audit"))
       .finally(() => setLoading(false));
   }, [competitionId, selectedRound]);
 
@@ -68,7 +72,11 @@ export function ScoreAuditView({
         </div>
       )}
 
-      {!loading && data && data.tables.length === 0 && (
+      {!loading && error && (
+        <p role="alert" className="py-8 text-center text-sm text-destructive">{error}</p>
+      )}
+
+      {!loading && !error && data && data.tables.length === 0 && (
         <p className="py-8 text-center text-sm text-muted-foreground">
           No scored submissions for this category yet.
         </p>

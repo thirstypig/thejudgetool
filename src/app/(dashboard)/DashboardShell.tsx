@@ -11,8 +11,6 @@ import {
   BarChart3,
   Users,
   ClipboardList,
-  CheckSquare,
-  AlertCircle,
   BookOpen,
   Home,
   LogOut,
@@ -114,18 +112,6 @@ const navItems: NavItem[] = [
     label: "My Table",
     href: "/captain",
     icon: LayoutDashboard,
-    roles: ["TABLE_CAPTAIN"],
-  },
-  {
-    label: "Score Review",
-    href: "/captain/scores",
-    icon: CheckSquare,
-    roles: ["TABLE_CAPTAIN"],
-  },
-  {
-    label: "Correction Requests",
-    href: "/captain/corrections",
-    icon: AlertCircle,
     roles: ["TABLE_CAPTAIN"],
   },
   // --- All roles ---

@@ -100,7 +100,7 @@ export function BoxEntryScreen({
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-muted-foreground">

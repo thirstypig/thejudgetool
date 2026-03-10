@@ -7,6 +7,24 @@ import { CATEGORY_STATUS } from "@/shared/constants/kcbs";
 import { scorecardSchema, correctionSchema, tableSetupSchema, boxCodeSchema } from "../schemas";
 import type { JudgeSession, JudgeSetupState, SubmissionWithDetails, BoxEntry } from "../types";
 
+// --- Helper: verify judge is assigned to the table owning a submission ---
+
+async function verifyJudgeTableMembership(
+  judgeId: string,
+  submissionId: string
+): Promise<void> {
+  const submission = await prisma.submission.findUniqueOrThrow({
+    where: { id: submissionId },
+    select: { tableId: true },
+  });
+  const assignment = await prisma.tableAssignment.findFirst({
+    where: { tableId: submission.tableId, userId: judgeId },
+  });
+  if (!assignment) {
+    throw new Error("You can only submit scores for your assigned table");
+  }
+}
+
 // --- Get Judge Setup State ---
 
 export async function getJudgeSetupState(): Promise<JudgeSetupState> {
@@ -81,7 +99,7 @@ export async function getJudgeSetupState(): Promise<JudgeSetupState> {
 // --- Claim Seat ---
 
 export async function claimSeat(assignmentId: string, seatNumber: number) {
-  await requireJudge();
+  const { userId } = await requireJudge();
 
   if (seatNumber < 1 || seatNumber > 6) {
     throw new Error("Seat must be between 1 and 6");
@@ -91,6 +109,11 @@ export async function claimSeat(assignmentId: string, seatNumber: number) {
     where: { id: assignmentId },
   });
   if (!assignment) throw new Error("Assignment not found");
+
+  // Verify the judge owns this assignment
+  if (assignment.userId !== userId) {
+    throw new Error("You can only claim a seat on your own assignment");
+  }
 
   // Check if seat is taken
   const seatTaken = await prisma.tableAssignment.findFirst({
@@ -305,24 +328,47 @@ export async function submitScoreCard(
     );
   }
 
-  const scoreCard = await prisma.scoreCard.upsert({
-    where: { submissionId_judgeId: { submissionId, judgeId } },
-    create: {
-      submissionId,
-      judgeId,
-      appearance: parsed.appearance,
-      taste: parsed.taste,
-      texture: parsed.texture,
-      locked: true,
-      submittedAt: new Date(),
-    },
-    update: {
-      appearance: parsed.appearance,
-      taste: parsed.taste,
-      texture: parsed.texture,
-      locked: true,
-      submittedAt: new Date(),
-    },
+  // Verify judge is assigned to this submission's table
+  await verifyJudgeTableMembership(judgeId, submissionId);
+
+  // Get competition context for audit logging
+  const submission = await prisma.submission.findUniqueOrThrow({
+    where: { id: submissionId },
+    select: { categoryRound: { select: { competitionId: true } } },
+  });
+
+  const scoreCard = await prisma.$transaction(async (tx) => {
+    const card = await tx.scoreCard.upsert({
+      where: { submissionId_judgeId: { submissionId, judgeId } },
+      create: {
+        submissionId,
+        judgeId,
+        appearance: parsed.appearance,
+        taste: parsed.taste,
+        texture: parsed.texture,
+        locked: true,
+        submittedAt: new Date(),
+      },
+      update: {
+        appearance: parsed.appearance,
+        taste: parsed.taste,
+        texture: parsed.texture,
+        locked: true,
+        submittedAt: new Date(),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        competitionId: submission.categoryRound.competitionId,
+        actorId: judgeId,
+        action: "SUBMIT_SCORE_CARD",
+        entityId: card.id,
+        entityType: "ScoreCard",
+      },
+    });
+
+    return card;
   });
 
   revalidatePath("/judge");
@@ -382,12 +428,11 @@ export async function getActiveCompetitionForJudge(): Promise<{
 // --- Register Judge at Table ---
 
 export async function registerJudgeAtTable(
-  cbjNumber: string,
   competitionId: string,
   tableNumber: number,
   seatNumber: number
 ) {
-  await requireJudge();
+  const { cbjNumber } = await requireJudge();
   const parsed = tableSetupSchema.parse({ tableNumber, seatNumber });
 
   const judge = await prisma.user.findUnique({ where: { cbjNumber } });
@@ -485,7 +530,8 @@ export async function addBoxToTable(
 export async function removeBoxFromTable(
   submissionId: string
 ) {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
+  await verifyJudgeTableMembership(judgeId, submissionId);
 
   const submission = await prisma.submission.findUnique({
     where: { id: submissionId },
@@ -504,7 +550,14 @@ export async function getBoxesForTable(
   tableId: string,
   categoryRoundId: string
 ): Promise<BoxEntry[]> {
-  await requireJudge();
+  const { userId: judgeId } = await requireJudge();
+  // Verify judge is assigned to this table
+  const assignment = await prisma.tableAssignment.findFirst({
+    where: { tableId, userId: judgeId },
+  });
+  if (!assignment) {
+    throw new Error("You can only view boxes for your assigned table");
+  }
   const submissions = await prisma.submission.findMany({
     where: { tableId, categoryRoundId },
     select: { id: true, boxCode: true, boxNumber: true },
@@ -524,6 +577,23 @@ export async function submitAppearanceScores(
   for (const { appearance } of scores) {
     if (!validScores.has(appearance)) {
       throw new Error("Score must be one of: 1, 2, 5, 6, 7, 8, 9");
+    }
+  }
+
+  // Verify judge is assigned to the table for all submissions
+  if (scores.length > 0) {
+    const submissions = await prisma.submission.findMany({
+      where: { id: { in: scores.map((s) => s.submissionId) } },
+      select: { id: true, tableId: true },
+    });
+    const tableIds = Array.from(new Set(submissions.map((s) => s.tableId)));
+    for (const tableId of tableIds) {
+      const assignment = await prisma.tableAssignment.findFirst({
+        where: { tableId, userId: judgeId },
+      });
+      if (!assignment) {
+        throw new Error("You can only submit scores for your assigned table");
+      }
     }
   }
 
@@ -563,6 +633,9 @@ export async function submitCommentCard(
   }
 ) {
   const { userId: judgeId } = await requireJudge();
+
+  // Verify judge is assigned to this submission's table
+  await verifyJudgeTableMembership(judgeId, submissionId);
 
   // Get the scorecard to auto-populate scores
   const scoreCard = await prisma.scoreCard.findUnique({

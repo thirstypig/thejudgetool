@@ -41,9 +41,13 @@ export function BoxDistributionPanel({
   // Load existing distribution from DB when status is APPROVED or DRAFT
   useEffect(() => {
     if (status === "APPROVED" || status === "DRAFT") {
-      getExistingDistribution(competitionId).then((data) => {
-        if (data) setDistribution(data);
-      });
+      getExistingDistribution(competitionId)
+        .then((data) => {
+          if (data) setDistribution(data);
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Failed to load distribution");
+        });
     }
   }, [competitionId, status]);
 

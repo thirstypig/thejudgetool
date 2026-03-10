@@ -71,7 +71,9 @@ function TabsTrigger({ value, className, onClick, ...props }: TabsTriggerProps) 
     <button
       role="tab"
       type="button"
+      id={`tab-${value}`}
       aria-selected={isActive}
+      aria-controls={`panel-${value}`}
       data-state={isActive ? "active" : "inactive"}
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -100,6 +102,8 @@ function TabsContent({ value, className, ...props }: TabsContentProps) {
   return (
     <div
       role="tabpanel"
+      id={`panel-${value}`}
+      aria-labelledby={`tab-${value}`}
       data-state="active"
       className={cn(
         "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",

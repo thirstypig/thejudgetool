@@ -105,7 +105,7 @@ export function CorrectionRequestForm({
           </form>
 
           {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+            <p role="alert" className="text-sm text-destructive">{serverError}</p>
           )}
         </div>
 

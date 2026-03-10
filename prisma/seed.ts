@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+const SALT_ROUNDS = 10;
 
 async function main() {
   // Clean existing data (order matters for FK constraints)
@@ -24,7 +26,7 @@ async function main() {
       date: new Date("2026-09-20T08:00:00Z"),
       location: "Kansas City, MO",
       status: "ACTIVE",
-      judgePin: "1234",
+      judgePin: await bcrypt.hash("1234", SALT_ROUNDS),
       commentCardsEnabled: true,
       organizerName: "Sarah Mitchell",
       kcbsRepName: "Bob Thompson",
@@ -40,7 +42,7 @@ async function main() {
       name: "Sarah Mitchell",
       email: "organizer@bbq-judge.test",
       role: "ORGANIZER",
-      pin: "organizer123",
+      pin: await bcrypt.hash("organizer123", SALT_ROUNDS),
     },
   });
 
@@ -65,7 +67,7 @@ async function main() {
         name: judgeNames[i - 1],
         email: `judge${i}@bbq-judge.test`,
         role: captainIndices.has(i - 1) ? "TABLE_CAPTAIN" : "JUDGE",
-        pin: "1234",
+        pin: await bcrypt.hash("1234", SALT_ROUNDS),
       },
     });
     judges.push(judge);

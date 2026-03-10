@@ -118,7 +118,7 @@ export function AppearanceScoringScreen({
         </p>
       )}
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <p className="text-xs text-muted-foreground text-center">
         Scores are final once submitted. You cannot change your answers.

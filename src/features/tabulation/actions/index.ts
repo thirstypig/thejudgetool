@@ -291,12 +291,23 @@ export async function declareWinner(
   return log;
 }
 
+// --- CSV formula injection prevention ---
+
+function sanitizeCsvValue(value: string): string {
+  const escaped = value.replace(/"/g, '""');
+  if (/^[=+\-@\t\r\n|]/.test(escaped)) {
+    return "'" + escaped;
+  }
+  return escaped;
+}
+
 // --- Export Results ---
 
 export async function exportResults(
   competitionId: string,
   format: "csv" | "json"
 ): Promise<string> {
+  await requireOrganizer();
   const allResults = await getAllCategoryResults(competitionId);
 
   if (format === "json") {
@@ -312,10 +323,10 @@ export async function exportResults(
     for (const r of results) {
       lines.push(
         [
-          `"${categoryName}"`,
+          `"${sanitizeCsvValue(categoryName)}"`,
           r.rank,
           r.anonymousNumber,
-          `"${r.teamName ?? ""}"`,
+          `"${sanitizeCsvValue(r.teamName ?? "")}"`,
           r.averageScore,
           r.totalPoints,
           r.judgeCount,
@@ -340,6 +351,11 @@ export async function getDetailedCategoryResults(
   const round = await prisma.categoryRound.findUniqueOrThrow({
     where: { id: categoryRoundId },
   });
+
+  // Verify category round belongs to the specified competition
+  if (round.competitionId !== competitionId) {
+    throw new Error("Category round does not belong to this competition");
+  }
 
   const submissions = await prisma.submission.findMany({
     where: { categoryRoundId },

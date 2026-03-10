@@ -104,7 +104,7 @@ export function JudgeImportForm({ onImported }: JudgeImportFormProps) {
             <p className="text-sm text-green-600 dark:text-green-400">{singleResult}</p>
           )}
           {singleError && (
-            <p className="text-sm text-destructive">{singleError}</p>
+            <p role="alert" className="text-sm text-destructive">{singleError}</p>
           )}
         </form>
       </TabsContent>
@@ -151,7 +151,7 @@ export function JudgeImportForm({ onImported }: JudgeImportFormProps) {
             </div>
           )}
           {bulkError && (
-            <p className="text-sm text-destructive">{bulkError}</p>
+            <p role="alert" className="text-sm text-destructive">{bulkError}</p>
           )}
         </div>
       </TabsContent>

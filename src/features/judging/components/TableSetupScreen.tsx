@@ -9,14 +9,12 @@ import { cn } from "@/shared/lib/utils";
 import { registerJudgeAtTable } from "../actions";
 
 interface TableSetupScreenProps {
-  cbjNumber: string;
   judgeName: string;
   competitionId: string;
   competitionName: string;
 }
 
 export function TableSetupScreen({
-  cbjNumber,
   judgeName,
   competitionId,
   competitionName,
@@ -32,7 +30,6 @@ export function TableSetupScreen({
     setLoading(true);
     try {
       await registerJudgeAtTable(
-        cbjNumber,
         competitionId,
         parseInt(tableNumber),
         seatNumber
@@ -95,7 +92,7 @@ export function TableSetupScreen({
             </div>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
           <Button
             onClick={handleSubmit}
