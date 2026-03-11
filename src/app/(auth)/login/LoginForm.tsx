@@ -102,9 +102,9 @@ export function LoginForm() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Flame className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold">BBQ Judge</h1>
+          <h1 className="text-2xl font-bold">The Judge Tool</h1>
           <p className="text-sm text-muted-foreground">
-            KCBS Competition Judging Platform
+            Competition Judging Platform
           </p>
         </div>
 

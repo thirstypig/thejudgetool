@@ -6,7 +6,6 @@ import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { SectionCard } from "@/shared/components/common/SectionCard";
 import { StatusBadge } from "@/shared/components/common/StatusBadge";
-import { UserAvatar } from "@/shared/components/common/UserAvatar";
 import { cn } from "@/shared/lib/utils";
 import type { TableScoringStatus, JudgeScoringStatus } from "../types";
 
@@ -102,23 +101,18 @@ function JudgeRow({ judge }: { judge: JudgeScoringStatus }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-md border p-3 transition-colors",
+        "flex items-center gap-2 rounded-md border p-2 transition-colors",
         judge.allSubmitted && "border-green-500/50 bg-green-50 dark:bg-green-950/20"
       )}
     >
-      <UserAvatar
-        cbjNumber={judge.judge.cbjNumber}
-        role="JUDGE"
-        className="h-8 w-8 text-xs"
-      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{judge.judge.name}</p>
         <p className="text-xs text-muted-foreground">
-          {judge.judge.cbjNumber}{judge.seatNumber != null ? ` · Seat ${judge.seatNumber}` : ""}
+          {judge.judge.cbjNumber}
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        <div className="w-16">
+      <div className="flex items-center gap-1.5">
+        <div className="w-12">
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div
               className={cn(
@@ -133,9 +127,9 @@ function JudgeRow({ judge }: { judge: JudgeScoringStatus }) {
           </p>
         </div>
         {judge.allSubmitted ? (
-          <StatusBadge status="submitted" />
+          <Check className="h-4 w-4 text-green-500 shrink-0" />
         ) : (
-          <StatusBadge status="active" />
+          <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
         )}
       </div>
     </div>
@@ -201,12 +195,12 @@ function SubmitGate() {
           </ul>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
-          <Check className="h-5 w-5 text-green-500" />
-          <span className="flex-1 text-sm font-medium text-green-700 dark:text-green-400">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+            <Check className="h-4 w-4 shrink-0" />
             All reviews complete — ready to submit
-          </span>
-          <Button onClick={onSubmit} disabled={isSubmitting}>
+          </div>
+          <Button onClick={onSubmit} disabled={isSubmitting} className="w-full">
             <Send className="mr-1 h-4 w-4" />
             {isSubmitting ? "Submitting..." : "Submit to Organizer"}
           </Button>

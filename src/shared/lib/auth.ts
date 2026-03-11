@@ -50,7 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const competitionPin = competitionReg?.competition?.judgePin;
         let pinMatch = false;
         if (competitionPin) {
-          pinMatch = await bcrypt.compare(pin, competitionPin);
+          pinMatch = pin === competitionPin;
         } else if (user.pin) {
           pinMatch = await bcrypt.compare(pin, user.pin);
         }

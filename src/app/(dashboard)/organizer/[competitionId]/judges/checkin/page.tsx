@@ -10,7 +10,7 @@ import {
 } from "@features/competition";
 
 export const metadata: Metadata = {
-  title: "Judge Check-In | BBQ Judge",
+  title: "Judge Check-In | The Judge Tool",
 };
 
 export default async function JudgeCheckInPage({
@@ -33,6 +33,7 @@ export default async function JudgeCheckInPage({
       <CheckInTab
         competitionId={params.competitionId}
         judgePin={competition.judgePin}
+        judgePinLocked={competition.judgePinLocked ?? false}
         roster={roster}
         showTables={false}
       />

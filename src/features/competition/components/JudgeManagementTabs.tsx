@@ -13,12 +13,14 @@ import type { CompetitionJudgeWithUser } from "../types";
 interface JudgeManagementTabsProps {
   competitionId: string;
   judgePin: string | null;
+  judgePinLocked: boolean;
   roster: CompetitionJudgeWithUser[];
 }
 
 export function JudgeManagementTabs({
   competitionId,
   judgePin,
+  judgePinLocked,
   roster,
 }: JudgeManagementTabsProps) {
   return (
@@ -36,6 +38,7 @@ export function JudgeManagementTabs({
         <CheckInTab
           competitionId={competitionId}
           judgePin={judgePin}
+          judgePinLocked={judgePinLocked}
           roster={roster}
         />
       </TabsContent>

@@ -85,6 +85,14 @@ npm run db:reset     # Reset DB + re-seed
 
 7 test files, 113 tests. Pure utils extracted for testability: `validateNoRepeatCompetitor()`, `generateBoxDistribution()`, `tabulateCategory()`, `calcWeightedTotal()`. See [docs/how-to/run-tests.md](docs/how-to/run-tests.md).
 
+### E2E Competition Simulation
+
+```bash
+npx tsx scripts/simulate-competition.ts
+```
+
+Runs a full KCBS competition lifecycle (seed → distribute → score 4 categories → tabulate → validate) with 2000+ assertions. Generates a markdown report at `reports/simulation-report.md` with standings, per-category results, and validation summaries. Run `npm run db:reset` afterward to restore dev seed data.
+
 ## Documentation
 
 Full docs in `docs/` following the [Diataxis framework](https://diataxis.fr/):

@@ -4,6 +4,18 @@ For how to run, write, and debug unit tests, see [docs/how-to/run-tests.md](docs
 
 Quick reference: `npm test` (single run) | `npm run test:watch` (watch mode) | 7 test files, 113 tests.
 
+## E2E Competition Simulation
+
+Runs a full KCBS competition lifecycle with 2000+ assertions and generates a markdown report:
+
+```bash
+npx tsx scripts/simulate-competition.ts
+# Report → reports/simulation-report.md
+npm run db:reset  # Restore dev seed data afterward
+```
+
+Covers: seed → box distribution (BR-2 validation) → scoring all 4 categories (24 judges × 24 teams) → tabulation → cross-category validation → overall standings + grand champion.
+
 ## Integration Smoke Test (Manual)
 
 ### Auth & Login

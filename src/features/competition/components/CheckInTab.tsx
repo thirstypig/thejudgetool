@@ -9,6 +9,8 @@ import {
   Shuffle,
   KeyRound,
   RefreshCw,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -18,6 +20,7 @@ import { DataTable } from "@/shared/components/common/DataTable";
 import { ConfirmDialog } from "@/shared/components/common/ConfirmDialog";
 import {
   generateJudgePin,
+  togglePinLock,
   checkInJudge,
   uncheckInJudge,
   assignJudgeToTableOnly,
@@ -28,6 +31,7 @@ import type { CompetitionJudgeWithUser } from "../types";
 interface CheckInTabProps {
   competitionId: string;
   judgePin: string | null;
+  judgePinLocked: boolean;
   roster: CompetitionJudgeWithUser[];
   showTables?: boolean;
 }
@@ -35,11 +39,13 @@ interface CheckInTabProps {
 export function CheckInTab({
   competitionId,
   judgePin: initialPin,
+  judgePinLocked: initialLocked,
   roster,
   showTables = true,
 }: CheckInTabProps) {
   const router = useRouter();
   const [pin, setPin] = useState(initialPin);
+  const [pinLocked, setPinLocked] = useState(initialLocked);
   const [isPending, startTransition] = useTransition();
   const [tableInputs, setTableInputs] = useState<Record<string, string>>({});
   const [randomError, setRandomError] = useState<string | null>(null);
@@ -72,6 +78,19 @@ export function CheckInTab({
     } catch (err) {
       setPinError(
         err instanceof Error ? err.message : "Failed to generate PIN"
+      );
+    }
+  }
+
+  async function handleToggleLock() {
+    setPinError(null);
+    try {
+      const newLocked = !pinLocked;
+      await togglePinLock(competitionId, newLocked);
+      setPinLocked(newLocked);
+    } catch (err) {
+      setPinError(
+        err instanceof Error ? err.message : "Failed to toggle lock"
       );
     }
   }
@@ -215,15 +234,32 @@ export function CheckInTab({
                 No PIN generated yet.
               </p>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGeneratePin}
-              className="ml-auto"
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              {pin ? "Regenerate" : "Generate PIN"}
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              {pin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleLock}
+                  title={pinLocked ? "Unlock PIN to allow regeneration" : "Lock PIN to prevent regeneration"}
+                >
+                  {pinLocked ? (
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Unlock className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGeneratePin}
+                disabled={pinLocked}
+                title={pinLocked ? "Unlock to regenerate" : undefined}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                {pin ? "Regenerate" : "Generate PIN"}
+              </Button>
+            </div>
           </div>
           {pinError && (
             <p className="mt-2 text-sm text-destructive">{pinError}</p>

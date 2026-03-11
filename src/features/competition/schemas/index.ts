@@ -4,12 +4,14 @@ export const competitionSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   date: z.string().refine(
     (val) => {
-      const d = new Date(val);
-      return !isNaN(d.getTime()) && d > new Date();
+      const d = new Date(val + "T00:00:00");
+      return !isNaN(d.getTime()) && d >= new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
     },
-    { message: "Date must be in the future" }
+    { message: "Date must be today or in the future" }
   ),
   location: z.string().min(1, "Location is required"),
+  organizerName: z.string().min(1, "Organizer name is required"),
+  optionalCategories: z.array(z.string().min(1).max(50)).max(3).default([]),
 });
 
 export const competitorSchema = z.object({

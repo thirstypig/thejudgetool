@@ -12,7 +12,7 @@ import {
 import { JudgeDashboardClient } from "./JudgeDashboardClient";
 
 export const metadata: Metadata = {
-  title: "My Scorecards | BBQ Judge",
+  title: "My Scorecards | The Judge Tool",
 };
 
 export default async function JudgePage() {

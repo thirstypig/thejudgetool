@@ -259,7 +259,7 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       {/* Mobile tabs */}
-      <div className="flex gap-1 rounded-lg bg-muted p-1 md:hidden">
+      <div className="flex gap-1 rounded-lg bg-muted p-1 lg:hidden">
         <button
           type="button"
           onClick={() => setActiveTab("status")}
@@ -308,9 +308,9 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
       </div>
 
       {/* Desktop: side-by-side / Mobile: tabbed */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Left panel — Table Status Board */}
-        <div className={activeTab !== "status" ? "hidden md:block" : ""}>
+        <div className={activeTab !== "status" ? "hidden lg:block" : ""}>
           {scoringStatus && (
             <TableStatusBoard.Root
               status={scoringStatus}
@@ -332,8 +332,8 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
         </div>
 
         {/* Right panel — Score Review + Comment Card Review */}
-        <div className={activeTab !== "scores" && activeTab !== "comments" ? "hidden md:block" : ""}>
-          <div className={activeTab === "comments" ? "hidden md:block" : ""}>
+        <div className={activeTab !== "scores" && activeTab !== "comments" ? "hidden lg:block" : ""}>
+          <div className={activeTab === "comments" ? "hidden lg:block" : ""}>
             <SectionCard.Root>
               <SectionCard.Header title="Score Cards" />
               <SectionCard.Body className="p-0">
@@ -347,7 +347,7 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
           </div>
 
           {session?.commentCardsEnabled && (
-            <div className={`mt-4 ${activeTab === "scores" ? "hidden md:block" : ""}`}>
+            <div className={`mt-4 ${activeTab === "scores" ? "hidden lg:block" : ""}`}>
               <SectionCard.Root>
                 <SectionCard.Header title="Comment Cards" />
                 <SectionCard.Body className="p-0">

@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "BBQ Judge",
-  description: "KCBS BBQ Competition Judging Platform",
+  title: "The Judge Tool",
+  description: "Competition Judging Platform",
 };
 
 export default function RootLayout({

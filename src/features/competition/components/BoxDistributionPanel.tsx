@@ -173,7 +173,7 @@ export function BoxDistributionPanel({
         <SectionCard.Body>
           {!canGenerate && !distribution && (
             <p className="text-sm text-muted-foreground">
-              Need at least 1 table and 6 BBQ teams to generate distribution.
+              Need at least 1 table and 6 teams to generate distribution.
             </p>
           )}
 
@@ -268,7 +268,7 @@ export function BoxDistributionPanel({
       {distribution && competitorView.length > 0 && (
         <SectionCard.Root>
           <SectionCard.Header
-            title="Box Numbers by BBQ Team"
+            title="Box Numbers by Team"
             actions={
               <span className="text-sm text-muted-foreground">
                 {competitorView.length} team{competitorView.length !== 1 ? "s" : ""}

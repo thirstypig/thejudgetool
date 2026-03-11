@@ -13,7 +13,7 @@ import {
 } from "@/shared/constants/kcbs";
 
 export const metadata: Metadata = {
-  title: "Judging Rules | BBQ Judge",
+  title: "Judging Rules | The Judge Tool",
 };
 
 export default function RulesPage() {

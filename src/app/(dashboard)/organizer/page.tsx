@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Trophy } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Competitions | BBQ Judge",
+  title: "Competitions | The Judge Tool",
 };
 import { PageHeader } from "@/shared/components/common/PageHeader";
 import { EmptyState } from "@/shared/components/common/EmptyState";

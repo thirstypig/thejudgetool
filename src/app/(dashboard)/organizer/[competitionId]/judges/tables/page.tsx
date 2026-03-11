@@ -11,7 +11,7 @@ import {
 } from "@features/competition";
 
 export const metadata: Metadata = {
-  title: "Tables | BBQ Judge",
+  title: "Tables | The Judge Tool",
 };
 
 export default async function TablesPage({

@@ -26,7 +26,7 @@ async function main() {
       date: new Date("2026-09-20T08:00:00Z"),
       location: "Kansas City, MO",
       status: "ACTIVE",
-      judgePin: await bcrypt.hash("1234", SALT_ROUNDS),
+      judgePin: "1234",
       commentCardsEnabled: true,
       organizerName: "Sarah Mitchell",
       kcbsRepName: "Bob Thompson",

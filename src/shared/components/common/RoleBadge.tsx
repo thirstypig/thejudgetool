@@ -13,7 +13,7 @@ const config: Record<UserRole, { label: string; classes: string }> = {
       "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300",
   },
   TABLE_CAPTAIN: {
-    label: "Captain",
+    label: "Table Captain",
     classes:
       "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300",
   },

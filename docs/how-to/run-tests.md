@@ -55,6 +55,16 @@ The project tests **pure utility functions** that can run without a database or 
 
 Server actions and components are verified via the [manual smoke test checklist](../../TESTING.md).
 
+## E2E Competition Simulation
+
+For a full end-to-end competition test with automated scoring and validation:
+
+```bash
+npx tsx scripts/simulate-competition.ts
+```
+
+This seeds fresh data, runs box distribution, scores all 4 categories with 24 judges, and validates 2000+ assertions. A formatted markdown report is written to `reports/simulation-report.md`. Run `npm run db:reset` afterward to restore dev seed data.
+
 ## Debugging Failing Tests
 
 ```bash
