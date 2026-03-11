@@ -10,7 +10,7 @@ import {
 } from "@features/competition";
 
 export const metadata: Metadata = {
-  title: "Team Check-In | BBQ Judge",
+  title: "Team Check-In | The Judge Tool",
 };
 
 export default async function TeamCheckInPage({

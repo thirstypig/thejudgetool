@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { CaptainDashboardClient } from "./CaptainDashboardClient";
 
 export const metadata: Metadata = {
-  title: "My Table | BBQ Judge",
+  title: "My Table | The Judge Tool",
 };
 
 export default async function CaptainPage() {

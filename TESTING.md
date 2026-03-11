@@ -1,27 +1,20 @@
 # Testing
 
-## Unit Tests
+For how to run, write, and debug unit tests, see [docs/how-to/run-tests.md](docs/how-to/run-tests.md).
 
-Run with Vitest:
+Quick reference: `npm test` (single run) | `npm run test:watch` (watch mode) | 7 test files, 113 tests.
+
+## E2E Competition Simulation
+
+Runs a full KCBS competition lifecycle with 2000+ assertions and generates a markdown report:
 
 ```bash
-npm test          # single run
-npm run test:watch # watch mode
+npx tsx scripts/simulate-competition.ts
+# Report → reports/simulation-report.md
+npm run db:reset  # Restore dev seed data afterward
 ```
 
-### Test Coverage
-
-| Module | File | Tests |
-|--------|------|-------|
-| competition | `utils/__tests__/validateNoRepeatCompetitor.test.ts` | BR-2 repeat competitor validation (5 tests) |
-| competition | `utils/__tests__/generateBoxDistribution.test.ts` | Box distribution algorithm — cyclic + greedy paths (8 tests) |
-| competition | `utils/__tests__/generateBoxDistribution.edge.test.ts` | Box distribution edge cases — boundaries, sorting, box number integrity (14 tests) |
-| tabulation | `utils/__tests__/tabulateCategory.test.ts` | Average calc, ranking, DQ flagging, outlier detection (13 tests) |
-| tabulation | `utils/__tests__/tabulateCategory.edge.test.ts` | Tabulation edge cases — DQ ordering, drop lowest, tiebreakers, misuse scenarios (22 tests) |
-| judging | `schemas/__tests__/scorecardSchema.test.ts` | Score range validation, integer enforcement, DQ detection (17 tests) |
-| judging | `schemas/__tests__/allSchemas.test.ts` | All schemas — scorecard, correction, tableSetup, boxCode, hasDQScore exhaustive validation (34 tests) |
-
-**Total: 7 test files, 113 tests**
+Covers: seed → box distribution (BR-2 validation) → scoring all 4 categories (24 judges × 24 teams) → tabulation → cross-category validation → overall standings + grand champion.
 
 ## Integration Smoke Test (Manual)
 

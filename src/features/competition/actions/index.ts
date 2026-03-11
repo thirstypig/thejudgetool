@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/shared/lib/prisma";
-import bcrypt from "bcryptjs";
 import { requireAuth, requireOrganizer } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
 import {
@@ -51,22 +50,35 @@ export async function createCompetition(data: {
   name: string;
   date: string;
   location: string;
+  organizerName: string;
+  optionalCategories?: string[];
 }) {
   await requireOrganizer();
   const parsed = competitionSchema.parse(data);
 
+  const allCategories = [
+    ...KCBS_MANDATORY_CATEGORIES.map((cat) => ({
+      categoryName: cat.name,
+      categoryType: cat.type,
+      order: cat.order,
+      status: CATEGORY_STATUS.PENDING,
+    })),
+    ...(parsed.optionalCategories || []).map((name, idx) => ({
+      categoryName: name,
+      categoryType: "OPTIONAL",
+      order: KCBS_MANDATORY_CATEGORIES.length + idx + 1,
+      status: CATEGORY_STATUS.PENDING,
+    })),
+  ];
+
   const competition = await prisma.competition.create({
     data: {
       name: parsed.name,
-      date: new Date(parsed.date),
+      date: new Date(parsed.date + "T00:00:00"),
       location: parsed.location,
+      organizerName: parsed.organizerName,
       categoryRounds: {
-        create: KCBS_MANDATORY_CATEGORIES.map((cat) => ({
-          categoryName: cat.name,
-          categoryType: cat.type,
-          order: cat.order,
-          status: CATEGORY_STATUS.PENDING,
-        })),
+        create: allCategories,
       },
     },
   });
@@ -210,7 +222,8 @@ export async function assignJudgeToTable(
   cbjNumber: string,
   tableNumber: number,
   seatNumber: number | null,
-  isCaptain: boolean
+  isCaptain: boolean,
+  isJudging: boolean = true
 ) {
   await requireOrganizer();
 
@@ -232,6 +245,17 @@ export async function assignJudgeToTable(
         captainId: isCaptain ? user.id : null,
       },
     });
+  }
+
+  // Non-judging captain: set captainId only, no TableAssignment
+  if (isCaptain && !isJudging) {
+    await prisma.table.update({
+      where: { id: table.id },
+      data: { captainId: user.id },
+    });
+    revalidatePath(`/organizer/${competitionId}/teams`);
+    revalidatePath(`/organizer/${competitionId}/judges`);
+    return null;
   }
 
   // Check seat conflict (only if seat is specified)
@@ -262,7 +286,63 @@ export async function assignJudgeToTable(
   }
 
   revalidatePath(`/organizer/${competitionId}/teams`);
+  revalidatePath(`/organizer/${competitionId}/judges`);
   return assignment;
+}
+
+// --- Toggle Captain Judging ---
+
+export async function toggleCaptainJudging(
+  competitionId: string,
+  tableId: string,
+  isJudging: boolean
+) {
+  await requireOrganizer();
+
+  const table = await prisma.table.findUniqueOrThrow({
+    where: { id: tableId },
+    select: { captainId: true, competitionId: true },
+  });
+
+  if (!table.captainId) {
+    throw new Error("This table has no captain");
+  }
+  if (table.competitionId !== competitionId) {
+    throw new Error("Table does not belong to this competition");
+  }
+
+  if (isJudging) {
+    // Add a TableAssignment for the captain (no seat yet)
+    const existing = await prisma.tableAssignment.findFirst({
+      where: { tableId, userId: table.captainId },
+    });
+    if (!existing) {
+      await prisma.tableAssignment.create({
+        data: { tableId, userId: table.captainId, seatNumber: null },
+      });
+    }
+  } else {
+    // Remove the captain's TableAssignment (they stay as captain but don't judge)
+    // Check for locked scores first
+    const hasScores = await prisma.scoreCard.findFirst({
+      where: {
+        judgeId: table.captainId,
+        submission: { tableId },
+        locked: true,
+      },
+      select: { id: true },
+    });
+    if (hasScores) {
+      throw new Error("Cannot remove judging role — captain has submitted scores");
+    }
+
+    await prisma.tableAssignment.deleteMany({
+      where: { tableId, userId: table.captainId },
+    });
+  }
+
+  revalidatePath(`/organizer/${competitionId}/teams`);
+  revalidatePath(`/organizer/${competitionId}/judges`);
 }
 
 // --- Validate No Repeat Competitor (BR-2) ---
@@ -284,16 +364,37 @@ export async function validateNoRepeatCompetitor(
 export async function generateJudgePin(competitionId: string) {
   await requireOrganizer();
 
+  // Check if PIN is locked
+  const competition = await prisma.competition.findUniqueOrThrow({
+    where: { id: competitionId },
+    select: { judgePinLocked: true },
+  });
+  if (competition.judgePinLocked) {
+    throw new Error("PIN is locked. Unlock it before regenerating.");
+  }
+
   const pin = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit
-  const hashedPin = await bcrypt.hash(pin, 10);
 
   await prisma.competition.update({
     where: { id: competitionId },
-    data: { judgePin: hashedPin },
+    data: { judgePin: pin },
   });
 
   revalidatePath(`/organizer/${competitionId}/judges`);
-  return pin; // Return plaintext for display; only hash is stored
+  return pin;
+}
+
+// --- Toggle Judge PIN Lock ---
+
+export async function togglePinLock(competitionId: string, locked: boolean) {
+  await requireOrganizer();
+
+  await prisma.competition.update({
+    where: { id: competitionId },
+    data: { judgePinLocked: locked },
+  });
+
+  revalidatePath(`/organizer/${competitionId}/judges`);
 }
 
 // --- Register Judge for Competition ---

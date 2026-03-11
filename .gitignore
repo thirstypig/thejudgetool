@@ -40,3 +40,6 @@ next-env.d.ts
 # environment
 .env
 *.db
+
+# simulation reports
+/reports

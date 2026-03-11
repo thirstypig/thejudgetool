@@ -123,7 +123,7 @@ function AddForm() {
   return (
     <SectionCard.Root>
       <SectionCard.Header
-        title="Add BBQ Team"
+        title="Add Team"
         actions={
           <div className="flex gap-2">
             <Button
@@ -294,7 +294,7 @@ function CompetitorTable({ showCheckIn = true }: { showCheckIn?: boolean }) {
   return (
     <SectionCard.Root>
       <SectionCard.Header
-        title="BBQ Teams"
+        title="Teams"
         actions={
           showCheckIn ? (
             <span className="text-sm text-muted-foreground">
@@ -321,7 +321,7 @@ function CompetitorTable({ showCheckIn = true }: { showCheckIn?: boolean }) {
             <EmptyState
               icon={Users}
               title="No teams yet"
-              description="Add BBQ teams above to get started."
+              description="Add teams above to get started."
             />
           }
         />

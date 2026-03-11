@@ -65,7 +65,7 @@ export function CompetitionProgressDashboard({
                 {cat.status === "ACTIVE" && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Captains submitted to organizer
+                      Table Captains submitted to organizer
                     </span>
                     <span className="font-medium">
                       {cat.captainSubmissions} / {cat.totalTables}

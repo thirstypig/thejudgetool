@@ -9,7 +9,7 @@ import {
 } from "@features/competition";
 
 export const metadata: Metadata = {
-  title: "Box Distribution | BBQ Judge",
+  title: "Box Distribution | The Judge Tool",
 };
 
 export default async function BoxDistributionPage({

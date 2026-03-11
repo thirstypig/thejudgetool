@@ -7,6 +7,15 @@ export const KCBS_MANDATORY_CATEGORIES = [
   { name: "Brisket", order: 4, type: "MANDATORY" },
 ] as const;
 
+export const KCBS_OPTIONAL_CATEGORY_SUGGESTIONS = [
+  "Sausage",
+  "Dessert",
+  "Side Dish",
+  "Chef's Choice",
+  "Seafood",
+  "Wild Game",
+] as const;
+
 export const KCBS_OPTIONAL_CATEGORIES = [
   { name: "Sausage", order: 5, type: "OPTIONAL" },
   { name: "Dessert", order: 6, type: "OPTIONAL" },

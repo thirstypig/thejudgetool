@@ -12,7 +12,6 @@ import {
 } from "@/shared/components/ui/table";
 import { Button } from "@/shared/components/ui/button";
 import { ScoreDisplay } from "@/shared/components/common/ScoreDisplay";
-import { StatusBadge } from "@/shared/components/common/StatusBadge";
 import { EmptyState } from "@/shared/components/common/EmptyState";
 import { cn } from "@/shared/lib/utils";
 import { ClipboardList, CheckCircle2 } from "lucide-react";
@@ -53,24 +52,22 @@ export function ScoreReviewTable({ scoreCards, reviewed, onMarkReviewed }: Score
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-16">Box</TableHead>
-            <TableHead className="w-20">#</TableHead>
-            <TableHead>Judge</TableHead>
-            <TableHead className="w-20 text-center">App</TableHead>
-            <TableHead className="w-20 text-center">Taste</TableHead>
-            <TableHead className="w-20 text-center">Text</TableHead>
-            <TableHead className="w-20 text-center">
+            <TableHead className="w-10 px-2">#</TableHead>
+            <TableHead className="px-2">Judge</TableHead>
+            <TableHead className="w-10 px-1 text-center">A</TableHead>
+            <TableHead className="w-10 px-1 text-center">T</TableHead>
+            <TableHead className="w-10 px-1 text-center">Tx</TableHead>
+            <TableHead className="w-12 px-1 text-center">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto px-1 py-0 text-xs font-medium"
+                className="h-auto px-0.5 py-0 text-xs font-medium"
                 onClick={() => setSortByTotal((v) => !v)}
               >
-                Total
-                <ArrowUpDown className="ml-1 h-3 w-3" />
+                Tot
+                <ArrowUpDown className="ml-0.5 h-3 w-3" />
               </Button>
             </TableHead>
-            <TableHead className="w-24">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -79,48 +76,35 @@ export function ScoreReviewTable({ scoreCards, reviewed, onMarkReviewed }: Score
               key={sc.id}
               className={cn(sc.hasDQ && "bg-red-50 dark:bg-red-950/20")}
             >
-              <TableCell className="font-mono text-sm">
-                {sc.submission.boxNumber}
+              <TableCell className="px-2 font-mono text-xs font-semibold">
+                {sc.submission.competitor?.anonymousNumber ?? sc.submission.boxCode ?? sc.submission.boxNumber}
               </TableCell>
-              <TableCell className="font-mono text-sm font-semibold">
-                #{sc.submission.competitor?.anonymousNumber ?? sc.submission.boxCode ?? sc.submission.boxNumber}
+              <TableCell className="px-2">
+                <p className="truncate text-sm">{sc.judge.name}</p>
               </TableCell>
-              <TableCell>
-                <div>
-                  <p className="text-sm">{sc.judge.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {sc.judge.cbjNumber}
-                  </p>
-                </div>
-              </TableCell>
-              <TableCell className="text-center">
+              <TableCell className="px-1 text-center">
                 <ScoreDisplay
                   score={sc.appearance}
                   dimension="appearance"
                   size="sm"
                 />
               </TableCell>
-              <TableCell className="text-center">
+              <TableCell className="px-1 text-center">
                 <ScoreDisplay
                   score={sc.taste}
                   dimension="taste"
                   size="sm"
                 />
               </TableCell>
-              <TableCell className="text-center">
+              <TableCell className="px-1 text-center">
                 <ScoreDisplay
                   score={sc.texture}
                   dimension="texture"
                   size="sm"
                 />
               </TableCell>
-              <TableCell className="text-center font-semibold tabular-nums">
+              <TableCell className="px-1 text-center font-semibold tabular-nums text-sm">
                 {sc.total}
-              </TableCell>
-              <TableCell>
-                <StatusBadge
-                  status={sc.locked ? "locked" : "active"}
-                />
               </TableCell>
             </TableRow>
           ))}

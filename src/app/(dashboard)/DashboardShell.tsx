@@ -67,7 +67,7 @@ const navItems: NavItem[] = [
     roles: ["ORGANIZER"],
   },
   {
-    label: "BBQ Teams",
+    label: "Teams",
     href: "/organizer/teams",
     icon: Beef,
     roles: ["ORGANIZER"],
@@ -269,16 +269,14 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
         <header className="sticky top-0 z-40 flex h-12 items-center justify-between border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center gap-2">
             <Flame className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold">BBQ Judge</span>
+            <span className="text-sm font-semibold">The Judge Tool</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent">
-                <UserAvatar
-                  cbjNumber={user.cbjNumber}
-                  role={user.role as UserRole}
-                />
+              <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-accent">
+                <span className="text-sm font-semibold font-mono">{user.cbjNumber}</span>
+                <ChevronDown className="h-3 w-3 opacity-50" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>
@@ -317,13 +315,8 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
         <div className="border-b px-4 py-3">
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-primary" />
-            <span className="font-bold">BBQ Judge</span>
+            <span className="font-bold">The Judge Tool</span>
           </div>
-          {user.role === "ORGANIZER" && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              KCBS Competition Manager
-            </p>
-          )}
         </div>
         {sidebarContent}
       </aside>
@@ -343,7 +336,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
               <SheetHeader className="border-b px-4 py-3">
                 <SheetTitle className="flex items-center gap-2 text-base">
                   <Flame className="h-5 w-5 text-primary" />
-                  BBQ Judge
+                  The Judge Tool
                 </SheetTitle>
               </SheetHeader>
               {sidebarContent}
@@ -392,6 +385,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
               <span className="hidden text-sm font-medium sm:inline">
                 {user.name || user.cbjNumber}
               </span>
+              <ChevronDown className="h-3 w-3 opacity-50" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
