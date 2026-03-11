@@ -6,6 +6,7 @@ export { CorrectionRequestPanel } from "./components/CorrectionRequestPanel";
 export { SubmitCategoryDialog } from "./components/SubmitCategoryDialog";
 export { CategorySubmittedScreen } from "./components/CategorySubmittedScreen";
 export {
+  getCaptainDashboardData,
   getTableScoringStatus,
   getTableScoreCards,
   getTableCommentCards,

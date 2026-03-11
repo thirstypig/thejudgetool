@@ -98,6 +98,6 @@ Runs a full KCBS competition lifecycle (seed → distribute → score 4 categori
 Full docs in `docs/` following the [Diataxis framework](https://diataxis.fr/):
 
 - **Tutorials**: [getting-started](docs/tutorials/getting-started.md), [first-competition](docs/tutorials/first-competition.md)
-- **How-to**: [add-a-feature-module](docs/how-to/add-a-feature-module.md), [run-tests](docs/how-to/run-tests.md), [manage-database](docs/how-to/manage-database.md), [deploy](docs/how-to/deploy.md)
+- **How-to**: [add-a-feature-module](docs/how-to/add-a-feature-module.md), [run-tests](docs/how-to/run-tests.md), [manage-database](docs/how-to/manage-database.md)
 - **Reference**: [architecture](docs/reference/architecture.md), [auth](docs/reference/auth.md), [scoring-rules](docs/reference/scoring-rules.md), [api](docs/reference/api.md), [seed-data](docs/reference/seed-data.md), [database-schema](docs/reference/database-schema.md)
 - **Explanation**: [judge-flow](docs/explanation/judge-flow.md), [security-model](docs/explanation/security-model.md), [box-distribution](docs/explanation/box-distribution.md)

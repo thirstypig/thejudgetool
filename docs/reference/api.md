@@ -48,7 +48,6 @@ All server actions use Next.js `"use server"` directive and require auth guards.
 | `approveDistribution(competitionId)` | Organizer | Approve and create Submissions |
 | `getExistingDistribution(competitionId)` | Organizer | Get approved distribution |
 | `resetDistribution(competitionId)` | Organizer | Reset (blocked if locked scores) |
-| `validateNoRepeatCompetitor(_, tableId, competitorId)` | Organizer | Check BR-2 compliance |
 
 ### Category Rounds
 | Action | Auth | Description |

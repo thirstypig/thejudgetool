@@ -51,7 +51,6 @@ Documentation follows the [Diataxis framework](https://diataxis.fr/) — organiz
 - [Add a Feature Module](docs/how-to/add-a-feature-module.md) — Create a new feature following project patterns
 - [Run Tests](docs/how-to/run-tests.md) — Run, write, and debug unit tests
 - [Manage the Database](docs/how-to/manage-database.md) — Migrations, seeding, resetting
-- [Deploy](docs/how-to/deploy.md) — Production deployment (placeholder)
 
 ### Reference (information-oriented)
 - [Architecture](docs/reference/architecture.md) — Project structure, design system, tech stack

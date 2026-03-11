@@ -5,7 +5,6 @@ import { Check, Clock, Send, ShieldAlert } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { SectionCard } from "@/shared/components/common/SectionCard";
-import { StatusBadge } from "@/shared/components/common/StatusBadge";
 import { cn } from "@/shared/lib/utils";
 import type { TableScoringStatus, JudgeScoringStatus } from "../types";
 

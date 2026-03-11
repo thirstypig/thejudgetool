@@ -11,30 +11,52 @@ import type {
   CorrectionRequestWithDetails,
 } from "../types";
 
-// --- Get Table Scoring Status ---
+// --- Shared: verify captain or organizer has access to table ---
 
-export async function getTableScoringStatus(
-  tableId: string,
-  categoryRoundId: string
-): Promise<TableScoringStatus> {
-  const { userId } = await requireCaptain();
+async function verifyCaptainOrOrganizer(userId: string, tableId: string) {
   const table = await prisma.table.findUniqueOrThrow({
     where: { id: tableId },
-    select: { id: true, tableNumber: true, captainId: true },
+    select: { id: true, tableNumber: true, captainId: true, competitionId: true },
   });
-
-  // Organizers can view any table; captains only their own
-  const session = await prisma.table.findFirst({
-    where: { id: tableId, captainId: userId },
-    select: { id: true },
-  });
-  const isOrganizer = !!(await prisma.user.findFirst({
-    where: { id: userId, role: "ORGANIZER" },
-    select: { id: true },
-  }));
-  if (!session && !isOrganizer) {
-    throw new Error("You can only view scoring status for your own table");
+  if (table.captainId !== userId) {
+    const isOrganizer = !!(await prisma.user.findFirst({
+      where: { id: userId, role: "ORGANIZER" },
+      select: { id: true },
+    }));
+    if (!isOrganizer) {
+      throw new Error("You can only access data for your own table");
+    }
   }
+  return table;
+}
+
+// --- Get Captain Dashboard Data (composite — single auth check) ---
+
+export async function getCaptainDashboardData(
+  tableId: string,
+  categoryRoundId: string
+) {
+  const { userId } = await requireCaptain();
+  const table = await verifyCaptainOrOrganizer(userId, tableId);
+
+  const [status, cards, comments, corrections, submitted] = await Promise.all([
+    fetchScoringStatus(table, categoryRoundId),
+    fetchScoreCards(tableId, categoryRoundId),
+    fetchCommentCards(tableId, categoryRoundId),
+    fetchPendingCorrections(tableId),
+    fetchCategorySubmitted(table.competitionId, tableId, categoryRoundId),
+  ]);
+
+  return { status, cards, comments, corrections, submitted };
+}
+
+// --- Internal data fetchers (no auth — called from composite action) ---
+
+async function fetchScoringStatus(
+  table: { id: string; tableNumber: number; captainId: string | null; competitionId: string },
+  categoryRoundId: string
+): Promise<TableScoringStatus> {
+  const tableId = table.id;
 
   const categoryRound = await prisma.categoryRound.findUniqueOrThrow({
     where: { id: categoryRoundId },
@@ -100,27 +122,12 @@ export async function getTableScoringStatus(
   };
 }
 
-// --- Get Table Score Cards ---
+// --- Internal data fetchers (no auth — called from composite or public actions) ---
 
-export async function getTableScoreCards(
+async function fetchScoreCards(
   tableId: string,
   categoryRoundId: string
 ): Promise<ScoreCardWithJudge[]> {
-  const { userId } = await requireCaptain();
-
-  // Verify captain owns this table (organizers also allowed)
-  const table = await prisma.table.findUniqueOrThrow({
-    where: { id: tableId },
-    select: { captainId: true },
-  });
-  const isOrganizer = !!(await prisma.user.findFirst({
-    where: { id: userId, role: "ORGANIZER" },
-    select: { id: true },
-  }));
-  if (table.captainId !== userId && !isOrganizer) {
-    throw new Error("You can only view score cards for your own table");
-  }
-
   const scoreCards = await prisma.scoreCard.findMany({
     where: {
       submission: { tableId, categoryRoundId },
@@ -142,30 +149,12 @@ export async function getTableScoreCards(
       { judge: { cbjNumber: "asc" } },
     ],
   });
-
-  // TODO: replace with Prisma.GetPayload to tie type to query shape
   return scoreCards as ScoreCardWithJudge[];
 }
 
-// --- Get Pending Correction Requests ---
-
-export async function getPendingCorrectionRequests(
+async function fetchPendingCorrections(
   tableId: string
 ): Promise<CorrectionRequestWithDetails[]> {
-  const { userId } = await requireCaptain();
-
-  // Verify captain owns this table (organizers also allowed)
-  const table = await prisma.table.findUniqueOrThrow({
-    where: { id: tableId },
-    select: { captainId: true },
-  });
-  const isOrganizer = !!(await prisma.user.findFirst({
-    where: { id: userId, role: "ORGANIZER" },
-    select: { id: true },
-  }));
-  if (table.captainId !== userId && !isOrganizer) {
-    throw new Error("You can only view correction requests for your own table");
-  }
   const requests = await prisma.correctionRequest.findMany({
     where: {
       status: "PENDING",
@@ -190,9 +179,79 @@ export async function getPendingCorrectionRequests(
     },
     orderBy: { id: "desc" },
   });
-
-  // TODO: replace with Prisma.GetPayload to tie type to query shape
   return requests as CorrectionRequestWithDetails[];
+}
+
+async function fetchCommentCards(
+  tableId: string,
+  categoryRoundId: string
+): Promise<CommentCardWithJudge[]> {
+  const commentCards = await prisma.commentCard.findMany({
+    where: {
+      categoryRoundId,
+      submission: { tableId },
+    },
+    include: {
+      judge: { select: { id: true, name: true, cbjNumber: true } },
+      submission: {
+        select: {
+          id: true,
+          boxNumber: true,
+          boxCode: true,
+          competitor: { select: { id: true, anonymousNumber: true } },
+        },
+      },
+    },
+    orderBy: [
+      { submission: { boxNumber: "asc" } },
+      { judge: { cbjNumber: "asc" } },
+    ],
+  });
+  return commentCards as CommentCardWithJudge[];
+}
+
+async function fetchCategorySubmitted(
+  competitionId: string,
+  tableId: string,
+  categoryRoundId: string
+): Promise<boolean> {
+  const log = await prisma.auditLog.findFirst({
+    where: {
+      competitionId,
+      action: "SUBMIT_CATEGORY",
+      entityId: `${categoryRoundId}:${tableId}`,
+      entityType: "CategoryRound",
+    },
+  });
+  return !!log;
+}
+
+// --- Public actions (with auth — kept for non-composite callers) ---
+
+export async function getTableScoringStatus(
+  tableId: string,
+  categoryRoundId: string
+): Promise<TableScoringStatus> {
+  const { userId } = await requireCaptain();
+  const table = await verifyCaptainOrOrganizer(userId, tableId);
+  return fetchScoringStatus(table, categoryRoundId);
+}
+
+export async function getTableScoreCards(
+  tableId: string,
+  categoryRoundId: string
+): Promise<ScoreCardWithJudge[]> {
+  const { userId } = await requireCaptain();
+  await verifyCaptainOrOrganizer(userId, tableId);
+  return fetchScoreCards(tableId, categoryRoundId);
+}
+
+export async function getPendingCorrectionRequests(
+  tableId: string
+): Promise<CorrectionRequestWithDetails[]> {
+  const { userId } = await requireCaptain();
+  await verifyCaptainOrOrganizer(userId, tableId);
+  return fetchPendingCorrections(tableId);
 }
 
 // --- Approve Correction Request ---
@@ -301,54 +360,14 @@ export async function denyCorrectionRequest(
   return correction;
 }
 
-// --- Get Table Comment Cards ---
-
 export async function getTableCommentCards(
   tableId: string,
   categoryRoundId: string
 ): Promise<CommentCardWithJudge[]> {
   const { userId } = await requireCaptain();
-
-  // Verify captain owns this table (organizers also allowed)
-  const table = await prisma.table.findUniqueOrThrow({
-    where: { id: tableId },
-    select: { captainId: true },
-  });
-  const isOrganizer = !!(await prisma.user.findFirst({
-    where: { id: userId, role: "ORGANIZER" },
-    select: { id: true },
-  }));
-  if (table.captainId !== userId && !isOrganizer) {
-    throw new Error("You can only view comment cards for your own table");
-  }
-
-  const commentCards = await prisma.commentCard.findMany({
-    where: {
-      categoryRoundId,
-      submission: { tableId },
-    },
-    include: {
-      judge: { select: { id: true, name: true, cbjNumber: true } },
-      submission: {
-        select: {
-          id: true,
-          boxNumber: true,
-          boxCode: true,
-          competitor: { select: { id: true, anonymousNumber: true } },
-        },
-      },
-    },
-    orderBy: [
-      { submission: { boxNumber: "asc" } },
-      { judge: { cbjNumber: "asc" } },
-    ],
-  });
-
-  // TODO: replace with Prisma.GetPayload to tie type to query shape
-  return commentCards as CommentCardWithJudge[];
+  await verifyCaptainOrOrganizer(userId, tableId);
+  return fetchCommentCards(tableId, categoryRoundId);
 }
-
-// --- Check if Category Already Submitted by Table ---
 
 export async function isCategorySubmittedByTable(
   tableId: string,
@@ -359,16 +378,7 @@ export async function isCategorySubmittedByTable(
     where: { id: tableId },
     select: { competitionId: true },
   });
-
-  const log = await prisma.auditLog.findFirst({
-    where: {
-      competitionId: table.competitionId,
-      action: "SUBMIT_CATEGORY",
-      entityId: `${tableId}:${categoryRoundId}`,
-      entityType: "CategoryRound",
-    },
-  });
-  return !!log;
+  return fetchCategorySubmitted(table.competitionId, tableId, categoryRoundId);
 }
 
 // --- Submit Category to Organizer (BR-6) ---

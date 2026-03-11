@@ -28,7 +28,7 @@ export const tableAssignmentSchema = z.object({
   isCaptain: z.boolean().default(false),
 });
 
-export type CompetitionSchemaType = z.infer<typeof competitionSchema>;
+export type CompetitionSchemaType = z.input<typeof competitionSchema>;
 export type CompetitorSchemaType = z.infer<typeof competitorSchema>;
 export type TableAssignmentSchemaType = z.output<typeof tableAssignmentSchema>;
 

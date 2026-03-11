@@ -15,11 +15,7 @@ import {
   CommentCardReviewTable,
   SubmitCategoryDialog,
   CategorySubmittedScreen,
-  getTableScoringStatus,
-  getTableScoreCards,
-  getTableCommentCards,
-  getPendingCorrectionRequests,
-  isCategorySubmittedByTable,
+  getCaptainDashboardData,
   submitCategoryToOrganizer,
 } from "@features/scoring";
 import type { TableScoringStatus, ScoreCardWithJudge, CommentCardWithJudge, CorrectionRequestWithDetails } from "@features/scoring";
@@ -61,32 +57,15 @@ export function CaptainDashboardClient({ cbjNumber, captainName }: Props) {
       setSession(judgeSession);
 
       if (judgeSession?.table && judgeSession.activeCategory) {
-        const [status, cards, comments, reqs, submitted] = await Promise.all([
-          getTableScoringStatus(
-            judgeSession.table.id,
-            judgeSession.activeCategory.id
-          ),
-          getTableScoreCards(
-            judgeSession.table.id,
-            judgeSession.activeCategory.id
-          ),
-          judgeSession.commentCardsEnabled
-            ? getTableCommentCards(
-                judgeSession.table.id,
-                judgeSession.activeCategory.id
-              )
-            : Promise.resolve([]),
-          getPendingCorrectionRequests(judgeSession.table.id),
-          isCategorySubmittedByTable(
-            judgeSession.table.id,
-            judgeSession.activeCategory.id
-          ),
-        ]);
-        setScoringStatus(status);
-        setScoreCards(cards);
-        setCommentCards(comments);
-        setCorrections(reqs);
-        setCategorySubmitted(submitted);
+        const data = await getCaptainDashboardData(
+          judgeSession.table.id,
+          judgeSession.activeCategory.id
+        );
+        setScoringStatus(data.status);
+        setScoreCards(data.cards);
+        setCommentCards(data.comments);
+        setCorrections(data.corrections);
+        setCategorySubmitted(data.submitted);
       } else {
         setCategorySubmitted(false);
         setCommentCards([]);

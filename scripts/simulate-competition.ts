@@ -15,8 +15,17 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+
+// Safety: refuse to run in production
+if (process.env.NODE_ENV === "production") {
+  console.error("ERROR: This script cannot be run in production. It wipes all data.");
+  process.exit(1);
+}
+
+const SALT_ROUNDS = 10;
 import {
   generateBoxDistribution,
   validateDistribution,
@@ -113,86 +122,74 @@ async function main() {
       name: "QA Organizer",
       email: "organizer@qa-test.test",
       role: "ORGANIZER",
-      pin: "admin123",
+      pin: await bcrypt.hash("admin123", SALT_ROUNDS),
     },
   });
 
-  // 24 judges
-  const judges = [];
+  // 24 judges (batch)
   const captainIndices = new Set([0, 6, 12, 18]);
-  for (let i = 1; i <= 24; i++) {
-    const judge = await prisma.user.create({
-      data: {
-        cbjNumber: String(200000 + i),
-        name: `QA Judge ${i}`,
-        email: `qa-judge-${i}@test.test`,
-        role: captainIndices.has(i - 1) ? "TABLE_CAPTAIN" : "JUDGE",
-        pin: "1234",
-      },
-    });
-    judges.push(judge);
-    await prisma.competitionJudge.create({
-      data: {
-        competitionId: competition.id,
-        userId: judge.id,
-        checkedIn: true,
-        checkedInAt: new Date(),
-      },
-    });
-  }
+  const hashedPin = await bcrypt.hash("1234", SALT_ROUNDS);
+  const judgeData = Array.from({ length: 24 }, (_, i) => ({
+    cbjNumber: String(200000 + i + 1),
+    name: `QA Judge ${i + 1}`,
+    email: `qa-judge-${i + 1}@test.test`,
+    role: captainIndices.has(i) ? "TABLE_CAPTAIN" : "JUDGE",
+    pin: hashedPin,
+  }));
+  // createManyAndReturn gives us IDs back
+  const judges = await prisma.user.createManyAndReturn({ data: judgeData });
+  // Sort by cbjNumber to maintain deterministic order
+  judges.sort((a, b) => a.cbjNumber.localeCompare(b.cbjNumber));
 
-  // 4 tables, 6 judges each
-  const tables = [];
-  for (let t = 0; t < 4; t++) {
-    const table = await prisma.table.create({
-      data: {
-        competitionId: competition.id,
-        tableNumber: t + 1,
-        captainId: judges[t * 6].id,
-      },
-    });
-    tables.push(table);
-    for (let j = 0; j < 6; j++) {
-      await prisma.tableAssignment.create({
-        data: {
-          tableId: table.id,
-          userId: judges[t * 6 + j].id,
-          seatNumber: null,
-        },
-      });
-    }
-  }
+  await prisma.competitionJudge.createMany({
+    data: judges.map((j) => ({
+      competitionId: competition.id,
+      userId: j.id,
+      checkedIn: true,
+      checkedInAt: new Date(),
+    })),
+  });
 
-  // 24 competitors (all checked in)
-  const competitors = [];
-  for (let i = 1; i <= 24; i++) {
-    const comp = await prisma.competitor.create({
-      data: {
-        competitionId: competition.id,
-        anonymousNumber: String(200 + i),
-        teamName: `QA Team ${i}`,
-        checkedIn: true,
-        checkedInAt: new Date(),
-      },
-    });
-    competitors.push(comp);
-  }
+  // 4 tables (batch, then assign judges)
+  const tableData = Array.from({ length: 4 }, (_, t) => ({
+    competitionId: competition.id,
+    tableNumber: t + 1,
+    captainId: judges[t * 6].id,
+  }));
+  const tables = await prisma.table.createManyAndReturn({ data: tableData });
+  tables.sort((a, b) => a.tableNumber - b.tableNumber);
 
-  // 4 category rounds
+  const assignmentData = tables.flatMap((table, t) =>
+    Array.from({ length: 6 }, (_, j) => ({
+      tableId: table.id,
+      userId: judges[t * 6 + j].id,
+      seatNumber: null as number | null,
+    }))
+  );
+  await prisma.tableAssignment.createMany({ data: assignmentData });
+
+  // 24 competitors (batch, all checked in)
+  const competitorData = Array.from({ length: 24 }, (_, i) => ({
+    competitionId: competition.id,
+    anonymousNumber: String(200 + i + 1),
+    teamName: `QA Team ${i + 1}`,
+    checkedIn: true,
+    checkedInAt: new Date(),
+  }));
+  const competitors = await prisma.competitor.createManyAndReturn({ data: competitorData });
+  competitors.sort((a, b) => a.anonymousNumber.localeCompare(b.anonymousNumber));
+
+  // 4 category rounds (batch)
   const categoryNames = ["Chicken", "Pork Ribs", "Pork", "Brisket"];
-  const rounds = [];
-  for (let i = 0; i < 4; i++) {
-    const round = await prisma.categoryRound.create({
-      data: {
-        competitionId: competition.id,
-        categoryName: categoryNames[i],
-        categoryType: "MANDATORY",
-        order: i + 1,
-        status: i === 0 ? "ACTIVE" : "PENDING",
-      },
-    });
-    rounds.push(round);
-  }
+  const roundData = categoryNames.map((name, i) => ({
+    competitionId: competition.id,
+    categoryName: name,
+    categoryType: "MANDATORY",
+    order: i + 1,
+    status: i === 0 ? "ACTIVE" : "PENDING",
+  }));
+  const rounds = await prisma.categoryRound.createManyAndReturn({ data: roundData });
+  rounds.sort((a, b) => a.order - b.order);
 
   console.log(`  ✓ Created competition with ${competitors.length} teams, ${judges.length} judges, ${tables.length} tables, ${rounds.length} categories\n`);
 
@@ -362,53 +359,70 @@ async function main() {
       submissionsByTable.get(key)!.push(sub);
     }
 
-    // Each judge scores all 6 competitors at their table
-    for (const [tableId, tableSubs] of submissionsByTable) {
+    // Build all score cards for this category in memory, then batch insert
+    const scoreCardBatch: Array<{
+      submissionId: string;
+      judgeId: string;
+      appearance: number;
+      taste: number;
+      texture: number;
+      locked: boolean;
+      submittedAt: Date;
+      appearanceSubmittedAt: Date;
+    }> = [];
+    // Track which cards need correction requests (by index in batch)
+    const correctionCandidates: Array<{ submissionId: string; judgeId: string }> = [];
+
+    for (const [tableId, tableSubs] of Array.from(submissionsByTable)) {
       const tableIdx = tables.findIndex((t) => t.id === tableId);
       const tableJudges = judges.slice(tableIdx * 6, tableIdx * 6 + 6);
 
       for (const judge of tableJudges) {
         for (const sub of tableSubs) {
-          // ~2% chance of DQ score
           const isDQ = Math.random() < 0.02;
           const app = isDQ ? 1 : randomScore();
           const taste = randomScore();
           const tex = randomScore();
-
           if (isDQ) dqCount++;
 
-          await prisma.scoreCard.create({
-            data: {
-              submissionId: sub.id,
-              judgeId: judge.id,
-              appearance: app,
-              taste,
-              texture: tex,
-              locked: true,
-              submittedAt: new Date(),
-              appearanceSubmittedAt: new Date(),
-            },
+          scoreCardBatch.push({
+            submissionId: sub.id,
+            judgeId: judge.id,
+            appearance: app,
+            taste,
+            texture: tex,
+            locked: true,
+            submittedAt: new Date(),
+            appearanceSubmittedAt: new Date(),
           });
           totalScoreCards++;
 
-          // ~1% chance of correction request on non-DQ scores
           if (!isDQ && Math.random() < 0.01) {
-            const scoreCard = await prisma.scoreCard.findFirst({
-              where: { submissionId: sub.id, judgeId: judge.id },
-            });
-            if (scoreCard) {
-              await prisma.correctionRequest.create({
-                data: {
-                  scoreCardId: scoreCard.id,
-                  judgeId: judge.id,
-                  reason: "Simulated correction request for QA testing",
-                  status: pick(["PENDING", "APPROVED", "DENIED"] as const),
-                },
-              });
-              correctionCount++;
-            }
+            correctionCandidates.push({ submissionId: sub.id, judgeId: judge.id });
           }
         }
+      }
+    }
+
+    // Batch insert all score cards for this category
+    await prisma.scoreCard.createMany({ data: scoreCardBatch });
+
+    // Create correction requests (need to look up scoreCard IDs)
+    for (const { submissionId, judgeId } of correctionCandidates) {
+      const scoreCard = await prisma.scoreCard.findFirst({
+        where: { submissionId, judgeId },
+        select: { id: true },
+      });
+      if (scoreCard) {
+        await prisma.correctionRequest.create({
+          data: {
+            scoreCardId: scoreCard.id,
+            judgeId,
+            reason: "Simulated correction request for QA testing",
+            status: pick(["PENDING", "APPROVED", "DENIED"] as const),
+          },
+        });
+        correctionCount++;
       }
     }
 
@@ -431,7 +445,7 @@ async function main() {
         include: { judge: { select: { id: true, name: true, cbjNumber: true } } },
       });
       tabulationInput.push({
-        competitorId: sub.competitorId,
+        competitorId: sub.competitorId!,
         anonymousNumber: sub.competitor!.anonymousNumber,
         teamName: sub.competitor!.teamName,
         cards: cards.map((c) => ({
@@ -545,7 +559,7 @@ async function main() {
       tableCompetitorHistory.set(tableKey, new Map());
     }
     const compMap = tableCompetitorHistory.get(tableKey)!;
-    const compKey = sub.competitorId;
+    const compKey = sub.competitorId!;
     if (!compMap.has(compKey)) compMap.set(compKey, []);
     compMap.get(compKey)!.push(sub.categoryRound.categoryName);
   }
@@ -598,7 +612,7 @@ async function main() {
     for (const r of results) {
       if (!overallStandings.has(r.competitorId)) {
         overallStandings.set(r.competitorId, {
-          name: r.teamName,
+          name: r.teamName ?? "",
           number: r.anonymousNumber,
           total: 0,
           categories: {},

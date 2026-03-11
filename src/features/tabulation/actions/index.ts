@@ -76,7 +76,7 @@ export async function getCompetitionProgress(
 
     // Count captain SUBMIT_CATEGORY audit logs for this round
     const captainSubmissions = submitLogs.filter(
-      (log) => log.entityId.endsWith(`:${round.id}`)
+      (log) => log.entityId.startsWith(`${round.id}:`)
     ).length;
 
     return {

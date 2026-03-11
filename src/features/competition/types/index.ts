@@ -1,27 +1,35 @@
-import type {
-  Competition,
-  Competitor,
-  Table,
-  TableAssignment,
-  CategoryRound,
-  CompetitionJudge,
-  User,
-} from "@prisma/client";
+import type { Prisma, CompetitionJudge, User } from "@prisma/client";
 
-export type CompetitionWithRelations = Competition & {
-  competitors: Competitor[];
-  tables: (Table & {
-    captain: Pick<User, "id" | "name" | "cbjNumber"> | null;
-    assignments: (TableAssignment & {
-      user: Pick<User, "id" | "name" | "cbjNumber" | "role">;
-    })[];
-  })[];
-  categoryRounds: CategoryRound[];
-  _count?: {
-    competitors: number;
-    tables: number;
-  };
-};
+/** The include shape used by getCompetitionById — keep in sync with the query */
+export const competitionByIdInclude = {
+  competitors: { orderBy: { anonymousNumber: "asc" as const } },
+  tables: {
+    orderBy: { tableNumber: "asc" as const },
+    include: {
+      captain: { select: { id: true, name: true, cbjNumber: true } },
+      assignments: {
+        orderBy: { seatNumber: "asc" as const },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              cbjNumber: true,
+              role: true,
+            },
+          },
+        },
+      },
+    },
+  },
+  categoryRounds: { orderBy: { order: "asc" as const } },
+  _count: { select: { competitors: true, tables: true } },
+} satisfies Prisma.CompetitionInclude;
+
+/** Derived from the actual Prisma query shape — no manual drift */
+export type CompetitionWithRelations = Prisma.CompetitionGetPayload<{
+  include: typeof competitionByIdInclude;
+}>;
 
 export type CompetitionJudgeWithUser = CompetitionJudge & {
   user: Pick<User, "id" | "name" | "cbjNumber" | "email" | "role">;
