@@ -6,7 +6,7 @@ KCBS-style BBQ competition judging app. Organizers create competitions, assign j
 
 - **Next.js 14.2** (App Router), **Tailwind CSS v3**, **Zustand**, **React Hook Form**, **next-themes**, **lucide-react**
 - **next-auth v5 beta** (JWT, Credentials), **Prisma 5**, **Supabase** (Postgres)
-- **TypeScript** (strict), **Zod**, **date-fns**, **Vitest**
+- **TypeScript** (strict), **Zod**, **date-fns**, **Vitest**, **Mermaid.js**
 
 ## Critical Constraints
 
@@ -21,7 +21,7 @@ src/
   app/(auth)/login/          — Two-tab login (Judge / Organizer)
   app/(dashboard)/           — DashboardShell + organizer/judge/captain pages
   features/                  — competition, judging, scoring, tabulation, users
-  shared/components/         — common/ (design system) + ui/ (primitives)
+  shared/components/         — common/ (design system, MermaidDiagram) + ui/ (primitives)
   shared/lib/                — auth.ts, auth-guards.ts, rate-limit.ts, prisma.ts
   shared/constants/kcbs.ts   — Scoring rules, categories, enums
   middleware.ts              — Role-based route protection
