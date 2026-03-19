@@ -20,8 +20,14 @@ KCBS-style BBQ competition judging app. Organizers create competitions, assign j
 src/
   app/(auth)/login/          — Two-tab login (Judge / Organizer)
   app/(dashboard)/           — DashboardShell + organizer/judge/captain pages
+  app/tech/                  — /tech — codebase teardown (public)
+  app/roadmap/               — /roadmap — project health & roadmap (public)
+  app/changelog/             — /changelog — release history (public)
+  app/status/                — /status — live health checks (public, "use client")
+  app/analytics/             — /analytics — product metrics (public)
+  app/api/health/            — GET /api/health — system health JSON endpoint
   features/                  — competition, judging, scoring, tabulation, users
-  shared/components/         — common/ (design system, MermaidDiagram) + ui/ (primitives)
+  shared/components/         — common/ (design system, MermaidDiagram, MetaPageNav) + ui/ (primitives)
   shared/lib/                — auth.ts, auth-guards.ts, rate-limit.ts, prisma.ts
   shared/constants/kcbs.ts   — Scoring rules, categories, enums
   middleware.ts              — Role-based route protection
@@ -77,13 +83,14 @@ npm run db:reset     # Reset DB + re-seed
 
 - Competition: "American Royal Open 2026" (ACTIVE), judgePin: "1234"
 - Organizer: organizer@bbq-judge.test / organizer123
+- Admin: jimmychang316@gmail.com / admin123 (ORGANIZER role)
 - 24 Judges: 100001–100024, PIN: 1234. Captains: 100001, 100007, 100013, 100019
 - 24 BBQ Teams: 101–124 (16 checked in). Chicken ACTIVE, rest PENDING.
 - Table 1 has pre-filled Chicken scores; competitor 104 has DQ + pending correction.
 
 ## Testing
 
-7 test files, 113 tests. Pure utils extracted for testability: `validateNoRepeatCompetitor()`, `generateBoxDistribution()`, `tabulateCategory()`, `calcWeightedTotal()`. See [docs/how-to/run-tests.md](docs/how-to/run-tests.md).
+25 test suites, 113 tests. Pure utils extracted for testability: `validateNoRepeatCompetitor()`, `generateBoxDistribution()`, `tabulateCategory()`, `calcWeightedTotal()`. See [docs/how-to/run-tests.md](docs/how-to/run-tests.md).
 
 ### E2E Competition Simulation
 

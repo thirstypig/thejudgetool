@@ -21,6 +21,10 @@ import {
   UserPlus,
   Table2,
   Beef,
+  Code2,
+  Target,
+  GitCommit,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -97,6 +101,36 @@ const navItems: NavItem[] = [
   {
     label: "Results",
     href: "/organizer/results",
+    icon: BarChart3,
+    roles: ["ORGANIZER"],
+  },
+  {
+    label: "Under the Hood",
+    href: "/tech",
+    icon: Code2,
+    roles: ["ORGANIZER"],
+  },
+  {
+    label: "Roadmap",
+    href: "/roadmap",
+    icon: Target,
+    roles: ["ORGANIZER"],
+  },
+  {
+    label: "Changelog",
+    href: "/changelog",
+    icon: GitCommit,
+    roles: ["ORGANIZER"],
+  },
+  {
+    label: "Status",
+    href: "/status",
+    icon: Activity,
+    roles: ["ORGANIZER"],
+  },
+  {
+    label: "Analytics",
+    href: "/analytics",
     icon: BarChart3,
     roles: ["ORGANIZER"],
   },
