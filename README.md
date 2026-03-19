@@ -18,10 +18,23 @@ See [Getting Started](docs/tutorials/getting-started.md) for the full setup walk
 | Role | Login | Password |
 |------|-------|----------|
 | Organizer | organizer@bbq-judge.test | organizer123 |
+| Admin | jimmychang316@gmail.com | admin123 |
 | Table Captain | 100001 | 1234 |
 | Judge | 100002 | 1234 |
 
 All 24 judges (100001-100024) use PIN 1234. Captains: 100001, 100007, 100013, 100019. See [seed data reference](docs/reference/seed-data.md) for full details.
+
+## Meta Pages
+
+Public pages accessible without login (also linked from organizer sidebar):
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Under the Hood | [/tech](/tech) | Codebase teardown, architecture, build journal |
+| Roadmap | [/roadmap](/roadmap) | Project health, planned features, risk register |
+| Changelog | [/changelog](/changelog) | Release history with change type badges |
+| Status | [/status](/status) | Live system health checks with latency |
+| Analytics | [/analytics](/analytics) | Development velocity, product metrics |
 
 ## Tech Stack
 

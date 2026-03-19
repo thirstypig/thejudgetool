@@ -46,6 +46,17 @@ async function main() {
     },
   });
 
+  // --- Admin Organizer ---
+  await prisma.user.create({
+    data: {
+      cbjNumber: "ADMIN2",
+      name: "Jimmy Chang",
+      email: "jimmychang316@gmail.com",
+      role: "ORGANIZER",
+      pin: await bcrypt.hash("admin123", SALT_ROUNDS),
+    },
+  });
+
   // --- 24 Judges ---
   const judgeNames = [
     "Marcus Johnson", "Lisa Chen", "David Williams", "Angela Rodriguez",
