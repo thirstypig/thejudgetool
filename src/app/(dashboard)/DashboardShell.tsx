@@ -60,6 +60,7 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   roles: string[];
   children?: NavChild[];
+  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -109,30 +110,35 @@ const navItems: NavItem[] = [
     href: "/tech",
     icon: Code2,
     roles: ["ORGANIZER"],
+    adminOnly: true,
   },
   {
     label: "Roadmap",
     href: "/roadmap",
     icon: Target,
     roles: ["ORGANIZER"],
+    adminOnly: true,
   },
   {
     label: "Changelog",
     href: "/changelog",
     icon: GitCommit,
     roles: ["ORGANIZER"],
+    adminOnly: true,
   },
   {
     label: "Status",
     href: "/status",
     icon: Activity,
     roles: ["ORGANIZER"],
+    adminOnly: true,
   },
   {
     label: "Analytics",
     href: "/analytics",
     icon: BarChart3,
     roles: ["ORGANIZER"],
+    adminOnly: true,
   },
   // --- Judge ---
   {
@@ -178,7 +184,10 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     setCompetitions,
   } = useCompetition();
 
-  const filteredNav = navItems.filter((item) => item.roles.includes(user.role));
+  const isAdmin = user.email === "jimmychang316@gmail.com";
+  const filteredNav = navItems.filter(
+    (item) => item.roles.includes(user.role) && (!item.adminOnly || isAdmin)
+  );
 
   // Load competitions for organizer
   useEffect(() => {
