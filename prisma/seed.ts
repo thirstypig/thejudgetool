@@ -53,7 +53,7 @@ async function main() {
       name: "Jimmy Chang",
       email: "jimmychang316@gmail.com",
       role: "ORGANIZER",
-      pin: await bcrypt.hash("admin123", SALT_ROUNDS),
+      pin: await bcrypt.hash("bbqJudge2026!", SALT_ROUNDS),
     },
   });
 
