@@ -1,4 +1,7 @@
-import { auth } from "@/shared/lib/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/shared/lib/auth.config";
+
+const { auth } = NextAuth(authConfig);
 import { NextResponse } from "next/server";
 
 const roleRouteMap: Record<string, string> = {

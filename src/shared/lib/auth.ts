@@ -3,8 +3,10 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/shared/lib/prisma";
 import { checkRateLimit, resetRateLimit } from "@/shared/lib/rate-limit";
+import authConfig from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       id: "judge-login",
@@ -113,28 +115,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.role = (user as unknown as { role: string }).role;
-        token.cbjNumber = (user as unknown as { cbjNumber: string }).cbjNumber;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub!;
-        (session.user as unknown as { role: string }).role = token.role as string;
-        (session.user as unknown as { cbjNumber: string }).cbjNumber = token.cbjNumber as string;
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
-  },
-  session: {
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
-  },
 });
