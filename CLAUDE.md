@@ -8,11 +8,20 @@ KCBS-style BBQ competition judging app. Organizers create competitions, assign j
 - **next-auth v5 beta** (JWT, Credentials), **Prisma 5**, **Supabase** (Postgres)
 - **TypeScript** (strict), **Zod**, **date-fns**, **Vitest**, **Mermaid.js**
 
+## Hosting
+
+- **Next.js app** (`app.thejudgetool.com`): **Vercel** (free tier), auto-deploys from `main`
+- **Marketing site** (`thejudgetool.com`): **GitHub Pages** (repo: `thirstypig/thejudgetool.com`)
+- **Database**: **Supabase** (Postgres)
+- **DNS**: Squarespace Domains
+- **GitHub repo**: `thirstypig/thejudgetool`
+
 ## Critical Constraints
 
 - **Prisma must stay on v5.** v7 uses `node:` imports incompatible with Next.js 14.
 - **shadcn v4 generates Tailwind v4 code** — use `npx shadcn@1` or manually adjust for v3.
 - **SectionCard requires "use client"** — uses `React.createContext`.
+- **Auth is split for Edge Runtime.** `auth.config.ts` (edge-safe, no Prisma/bcrypt) is used by middleware. `auth.ts` (full) is used by server actions. Do not add `callbacks` to `auth.ts` — they live in `auth.config.ts`.
 
 ## Project Structure
 
@@ -28,7 +37,8 @@ src/
   app/api/health/            — GET /api/health — system health JSON endpoint
   features/                  — competition, judging, scoring, tabulation, users
   shared/components/         — common/ (design system, MermaidDiagram, MetaPageNav) + ui/ (primitives)
-  shared/lib/                — auth.ts, auth-guards.ts, rate-limit.ts, prisma.ts
+  shared/lib/                — auth.ts, auth.config.ts, auth-guards.ts, rate-limit.ts, prisma.ts
+  types/next-auth.d.ts       — Module augmentation for next-auth (User, Session, JWT)
   shared/constants/kcbs.ts   — Scoring rules, categories, enums
   middleware.ts              — Role-based route protection
 prisma/schema.prisma         — Data models
@@ -46,7 +56,7 @@ Each `src/features/<name>/` has: `components/`, `hooks/`, `store/`, `actions/`, 
 
 ```bash
 npm run dev          # Start dev server (port 3030)
-npm run build        # Production build
+npm run build        # prisma generate + next build
 npm run lint         # ESLint
 npm test             # Unit tests (Vitest)
 npm run db:migrate   # Prisma migrations
@@ -81,7 +91,7 @@ npm run db:reset     # Reset DB + re-seed
 
 ## Seed Data
 
-- Competition: "American Royal Open 2026" (ACTIVE), judgePin: "1234"
+- Competition: "American Royal Open 2026" (ACTIVE), judgePin: "1234" (bcrypt hashed in DB)
 - Organizer: organizer@bbq-judge.test / organizer123
 - Admin: jimmychang316@gmail.com / admin123 (ORGANIZER role)
 - 24 Judges: 100001–100024, PIN: 1234. Captains: 100001, 100007, 100013, 100019
