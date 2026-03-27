@@ -18,8 +18,7 @@ export async function requireAuth(): Promise<Session> {
 /** Returns the authenticated session. Throws if not ORGANIZER. */
 export async function requireOrganizer(): Promise<Session> {
   const session = await requireAuth();
-  const role = (session.user as { role?: string } | undefined)?.role;
-  if (role !== "ORGANIZER") {
+  if (session.user.role !== "ORGANIZER") {
     throw new Error("Unauthorized");
   }
   return session;
@@ -32,14 +31,11 @@ export async function requireJudge(): Promise<{
   userId: string;
 }> {
   const session = await requireAuth();
-  const role = (session.user as { role?: string } | undefined)?.role;
-  if (role !== "JUDGE" && role !== "TABLE_CAPTAIN") {
+  if (session.user.role !== "JUDGE" && session.user.role !== "TABLE_CAPTAIN") {
     throw new Error("Unauthorized: must be a judge");
   }
-  const cbjNumber = (session.user as { cbjNumber?: string }).cbjNumber;
-  if (!cbjNumber) throw new Error("Unauthorized: missing CBJ number");
-  const userId = (session.user as { id: string }).id;
-  return { session, cbjNumber, userId };
+  if (!session.user.cbjNumber) throw new Error("Unauthorized: missing CBJ number");
+  return { session, cbjNumber: session.user.cbjNumber!, userId: session.user.id! };
 }
 
 /** Returns session + cbjNumber + userId. Throws if not TABLE_CAPTAIN or ORGANIZER. */
@@ -49,11 +45,12 @@ export async function requireCaptain(): Promise<{
   userId: string;
 }> {
   const session = await requireAuth();
-  const role = (session.user as { role?: string } | undefined)?.role;
-  if (role !== "TABLE_CAPTAIN" && role !== "ORGANIZER") {
+  if (session.user.role !== "TABLE_CAPTAIN" && session.user.role !== "ORGANIZER") {
     throw new Error("Unauthorized: must be a table captain");
   }
-  const cbjNumber = (session.user as { cbjNumber?: string }).cbjNumber;
-  const userId = (session.user as { id: string }).id;
-  return { session, cbjNumber, userId };
+  return {
+    session,
+    cbjNumber: session.user.cbjNumber ?? undefined,
+    userId: session.user.id!,
+  };
 }

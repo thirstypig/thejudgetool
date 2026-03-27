@@ -19,7 +19,7 @@ model Competition {
   date                DateTime
   location            String
   status              String   @default("SETUP") // SETUP | ACTIVE | CLOSED
-  judgePin            String?  // Shared 4-digit PIN for all judges (plaintext — compared via === in auth.ts, NOT bcrypt)
+  judgePin            String?  // Shared 4-digit PIN for all judges (bcrypt hashed)
   judgePinLocked       Boolean  @default(false)
   organizerName       String?
   kcbsRepName         String?

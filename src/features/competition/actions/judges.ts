@@ -3,6 +3,7 @@
 import { prisma } from "@/shared/lib/prisma";
 import { requireAuth, requireOrganizer } from "@/shared/lib/auth-guards";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import type { CompetitionJudgeWithUser } from "../types";
 
 // --- Generate Judge PIN ---
@@ -11,11 +12,12 @@ export async function generateJudgePin(competitionId: string) {
   await requireOrganizer();
 
   const pin = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit
+  const hashedPin = await bcrypt.hash(pin, 10);
 
   // Atomic: only update if not locked (prevents TOCTOU race)
   const result = await prisma.competition.updateMany({
     where: { id: competitionId, judgePinLocked: false },
-    data: { judgePin: pin },
+    data: { judgePin: hashedPin },
   });
   if (result.count === 0) {
     // Check if competition exists vs is locked

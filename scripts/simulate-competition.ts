@@ -107,7 +107,7 @@ async function main() {
       date: new Date("2026-09-20T08:00:00Z"),
       location: "Kansas City, MO",
       status: "ACTIVE",
-      judgePin: "9999",
+      judgePin: await bcrypt.hash("9999", 10),
       commentCardsEnabled: true,
       organizerName: "QA Bot",
       kcbsRepName: "Test Rep",

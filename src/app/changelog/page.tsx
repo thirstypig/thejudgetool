@@ -59,6 +59,98 @@ const changeTypeConfig: Record<ChangeType, { label: string; icon: LucideIcon; cl
 
 const releases: Release[] = [
   {
+    version: "0.14.0",
+    date: "2026-03-26",
+    session: "Session 13",
+    title: "Vercel Migration & Security Hardening",
+    pr: null,
+    filesChanged: 12,
+    linesAdded: 180,
+    linesRemoved: 95,
+    highlights: [
+      "Migrated hosting from Render Pro to Vercel (free tier) — $49/mo savings",
+      "Hashed competition judgePin with bcrypt — eliminated plaintext PIN storage",
+      "Added TypeScript module augmentation for next-auth — removed all unsafe type casts",
+    ],
+    changes: [
+      { type: "feat", text: "Migrated Next.js app hosting from Render Pro to Vercel with auto-deploy from main branch" },
+      { type: "feat", text: "Moved static marketing site to GitHub Pages (thirstypig/thejudgetool.com repo)" },
+      { type: "feat", text: "Split auth into auth.config.ts (Edge-safe) and auth.ts (Node.js) for Vercel Edge Runtime compatibility" },
+      { type: "security", text: "Competition judgePin now bcrypt-hashed — was plaintext. Auth uses bcrypt.compare for PIN verification" },
+      { type: "security", text: "PIN generation action (generateJudgePin) now hashes before storing; returns plaintext only to organizer UI" },
+      { type: "refactor", text: "Added next-auth module augmentation (src/types/next-auth.d.ts) — eliminated all `as unknown as` double-casts" },
+      { type: "refactor", text: "Cleaned up auth-guards.ts — direct property access instead of type casts" },
+      { type: "refactor", text: "Switched auth.config.ts from default export to named export (authConfig) for consistency" },
+      { type: "fix", text: "Fixed import ordering in middleware.ts — imports before executable statements" },
+      { type: "fix", text: "Added prisma generate to build command for Vercel fresh node_modules" },
+      { type: "fix", text: "Updated CheckInTab PIN display — shows 'PIN is set' when hashed, reveals plaintext only after generation" },
+    ],
+  },
+  {
+    version: "0.13.0",
+    date: "2026-03-19",
+    session: "Session 12",
+    title: "Static Marketing Site",
+    pr: "PR #14–#15",
+    filesChanged: 5,
+    linesAdded: 420,
+    linesRemoved: 10,
+    highlights: [
+      "Separated static marketing site from Next.js app for independent deployment",
+      "Marketing site as standalone HTML/CSS in marketing/ directory",
+      "Fixed Render static site deployment with package.json",
+    ],
+    changes: [
+      { type: "feat", text: "Separated static marketing site from Next.js app into marketing/ directory" },
+      { type: "fix", text: "Added package.json to marketing site for Render static deploy compatibility" },
+      { type: "fix", text: "Excluded root path from auth middleware so landing page loads for unauthenticated users" },
+    ],
+  },
+  {
+    version: "0.12.0",
+    date: "2026-03-18",
+    session: "Session 11",
+    title: "Marketing Landing Page",
+    pr: "PR #12–#13",
+    filesChanged: 8,
+    linesAdded: 1850,
+    linesRemoved: 25,
+    highlights: [
+      "Full marketing landing page with dark mode and mobile responsive design",
+      "Admin-only access to meta pages (tech, roadmap, changelog, status, analytics)",
+      "Hero, pain points, feature comparison, and CTA sections",
+    ],
+    changes: [
+      { type: "feat", text: "Marketing landing page with hero, pain points, judge section, feature comparison, and CTA" },
+      { type: "feat", text: "Dark mode support on landing page with system preference detection" },
+      { type: "feat", text: "Mobile responsive design for all landing page sections" },
+      { type: "fix", text: "Middleware updated to allow unauthenticated access to root path" },
+    ],
+  },
+  {
+    version: "0.11.0",
+    date: "2026-03-17",
+    session: "Session 10",
+    title: "Meta Pages — Roadmap, Changelog, Status, Analytics",
+    pr: "PR #11",
+    filesChanged: 12,
+    linesAdded: 2400,
+    linesRemoved: 50,
+    highlights: [
+      "Added /roadmap with health scorecard, phased roadmap, risk register, and velocity tracking",
+      "Added /changelog with release history, change type distribution, and expandable details",
+      "Added /status with live health checks and /analytics with product metrics",
+    ],
+    changes: [
+      { type: "feat", text: "Roadmap page with health scorecard (6 categories), 3-phase roadmap, risk register, and session velocity" },
+      { type: "feat", text: "Changelog page with release cards, change type badges, stats summary, and expandable details" },
+      { type: "feat", text: "Status page with live API health checks and system component status" },
+      { type: "feat", text: "Analytics page with product metrics and usage statistics" },
+      { type: "feat", text: "MetaPageNav shared component for cross-navigation between meta pages" },
+      { type: "feat", text: "MermaidDiagram component for rendering Mermaid.js diagrams client-side" },
+    ],
+  },
+  {
     version: "0.10.0",
     date: "2026-03-16",
     session: "Session 9",
@@ -406,7 +498,7 @@ export default function ChangelogPage() {
             to a PR merge with detailed change breakdowns by type.
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Last updated: March 19, 2026
+            Last updated: March 26, 2026
           </p>
         </div>
       </header>
