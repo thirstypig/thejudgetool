@@ -92,6 +92,36 @@ const roadmapPhases: { key: PhaseKey; label: string; color: string; items: Roadm
     color: "border-emerald-500",
     items: [
       {
+        id: "ST-0a",
+        title: "Migrate hosting to Vercel + GitHub Pages",
+        description: "Moved Next.js app from Render Pro ($49/mo) to Vercel (free). Static marketing site to GitHub Pages. Split auth.config.ts for Edge Runtime.",
+        effort: "M",
+        status: "done",
+        tags: ["infra", "devops"],
+        priority: "P1",
+        fixedDate: "2026-03-26",
+      },
+      {
+        id: "ST-0b",
+        title: "Hash competition judgePin with bcrypt",
+        description: "Competition judgePin was stored as plaintext. Now bcrypt-hashed with bcrypt.compare for verification. PIN display updated for hashed storage.",
+        effort: "S",
+        status: "done",
+        tags: ["security", "auth"],
+        priority: "P1",
+        fixedDate: "2026-03-26",
+      },
+      {
+        id: "ST-0c",
+        title: "TypeScript type augmentation for next-auth",
+        description: "Added module augmentation for next-auth types. Eliminated all unsafe `as unknown as` double-casts across auth files and guards.",
+        effort: "S",
+        status: "done",
+        tags: ["dx", "typescript"],
+        priority: "P2",
+        fixedDate: "2026-03-26",
+      },
+      {
         id: "ST-1",
         title: "Per-user PIN support",
         description: "Replace shared competition PIN with individual hashed PINs per judge. Currently all judges use the same PIN.",
@@ -249,6 +279,10 @@ const sessionVelocity: SessionVelocity[] = [
   { session: "Session 7", date: "Mar 11", itemsCompleted: 8, prs: ["PR #7", "PR #8"] },
   { session: "Session 8", date: "Mar 13", itemsCompleted: 2, prs: ["PR #9"] },
   { session: "Session 9", date: "Mar 16", itemsCompleted: 3, prs: ["PR #10"] },
+  { session: "Session 10", date: "Mar 17", itemsCompleted: 6, prs: ["PR #11"] },
+  { session: "Session 11", date: "Mar 18", itemsCompleted: 4, prs: ["PR #12", "PR #13"] },
+  { session: "Session 12", date: "Mar 19", itemsCompleted: 3, prs: ["PR #14", "PR #15"] },
+  { session: "Session 13", date: "Mar 26", itemsCompleted: 11, prs: [] },
 ];
 
 const maxVelocity = Math.max(...sessionVelocity.map((s) => s.itemsCompleted));
@@ -272,19 +306,19 @@ const nextSessionTasks = [
 const risks: Risk[] = [
   {
     id: "R-1",
-    title: "In-memory rate limiter resets on deploy",
+    title: "In-memory rate limiter ineffective on Vercel serverless",
     impact: "Medium",
     likelihood: "High",
-    mitigation: "Document limitation. Plan Redis migration for production. Currently acceptable for MVP.",
-    status: "monitoring",
+    mitigation: "Migrated to Vercel serverless — each function instance has its own Map, rate limits don't persist across cold starts. Redis migration planned (ST-2).",
+    status: "active",
   },
   {
     id: "R-2",
     title: "Shared judge PIN allows impersonation",
     impact: "High",
     likelihood: "Medium",
-    mitigation: "Per-user PIN support planned (ST-1). Seat selection provides weak identity verification.",
-    status: "active",
+    mitigation: "PIN now bcrypt-hashed (fixed Mar 26). Per-user PIN support planned (ST-1). Seat selection provides weak identity verification.",
+    status: "monitoring",
   },
   {
     id: "R-3",

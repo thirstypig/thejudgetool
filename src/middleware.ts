@@ -1,8 +1,9 @@
 import NextAuth from "next-auth";
-import authConfig from "@/shared/lib/auth.config";
+import { NextResponse } from "next/server";
+
+import { authConfig } from "@/shared/lib/auth.config";
 
 const { auth } = NextAuth(authConfig);
-import { NextResponse } from "next/server";
 
 const roleRouteMap: Record<string, string> = {
   ORGANIZER: "/organizer",
@@ -14,10 +15,7 @@ const protectedPrefixes = ["/organizer", "/captain", "/judge", "/rules"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const user = req.auth?.user as
-    | { role?: string; cbjNumber?: string }
-    | undefined;
-  const role = user?.role;
+  const role = req.auth?.user?.role;
 
   // If not authenticated and trying to access protected routes, redirect to login
   if (!req.auth && protectedPrefixes.some((p) => pathname.startsWith(p))) {

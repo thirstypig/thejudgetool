@@ -44,7 +44,10 @@ export function CheckInTab({
   showTables = true,
 }: CheckInTabProps) {
   const router = useRouter();
-  const [pin, setPin] = useState(initialPin);
+  // judgePin is now bcrypt-hashed in DB — we can't display it.
+  // Show plaintext only after fresh generation; otherwise show "PIN is set".
+  const [pin, setPin] = useState<string | null>(null);
+  const [pinIsSet, setPinIsSet] = useState(!!initialPin);
   const [pinLocked, setPinLocked] = useState(initialLocked);
   const [isPending, startTransition] = useTransition();
   const [tableInputs, setTableInputs] = useState<Record<string, string>>({});
@@ -75,6 +78,7 @@ export function CheckInTab({
     try {
       const newPin = await generateJudgePin(competitionId);
       setPin(newPin);
+      setPinIsSet(true);
     } catch (err) {
       setPinError(
         err instanceof Error ? err.message : "Failed to generate PIN"
@@ -229,13 +233,20 @@ export function CheckInTab({
                   {pin}
                 </span>
               </div>
+            ) : pinIsSet ? (
+              <div className="flex items-center gap-3">
+                <KeyRound className="h-5 w-5 text-primary" />
+                <span className="text-lg font-medium text-muted-foreground">
+                  PIN is set — generate a new one to reveal it
+                </span>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No PIN generated yet.
               </p>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {pin && (
+              {(pin || pinIsSet) && (
                 <Button
                   variant="ghost"
                   size="sm"

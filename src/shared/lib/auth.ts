@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/shared/lib/prisma";
 import { checkRateLimit, resetRateLimit } from "@/shared/lib/rate-limit";
-import authConfig from "./auth.config";
+import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -52,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const competitionPin = competitionReg?.competition?.judgePin;
         let pinMatch = false;
         if (competitionPin) {
-          pinMatch = pin === competitionPin;
+          pinMatch = await bcrypt.compare(pin, competitionPin);
         } else if (user.pin) {
           pinMatch = await bcrypt.compare(pin, user.pin);
         }
